@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>scrbr | Editor</title>
+<title>Editor</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,600;1,8..60,300;1,8..60,400&display=swap" rel="stylesheet">
@@ -11,20 +11,25 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg:           #F5F1EA;
-  --surface:      #FEFCF8;
-  --toolbar-bg:   #ECEAE3;
-  --border:       #D4CEC2;
-  --text:         #1C1A16;
-  --muted:        #72695E;
-  --accent:       #2C4B70;
-  --danger:       #8C2222;
-  --font-ui:      'Source Sans 3', system-ui, sans-serif;
-  --font-mono:    'Source Serif 4', Georgia, serif;
-  --font-text:    'Source Serif 4', Georgia, serif;
-  --width:        680px;
-  --toolbar-h:    46px;
-  --status-h:     30px;
+  --bg:      #F2EDE3;
+  --tint:    #E6E0D6;
+  --text:    #1C1A16;
+  --accent:  #2C4B70;
+  --danger:  #8C2222;
+  --line:    #C8C2B7;
+  --muted-text: #8A8278;
+
+  --font-ui:   'Source Sans 3', system-ui, sans-serif;
+  --font-mono: 'Source Serif 4', Georgia, serif;
+  --font-text: 'Source Serif 4', Georgia, serif;
+
+  --width:     680px;
+  --toolbar-h: 46px;
+
+  --btn-h:   26px;
+  --btn-px:  10px;
+  --btn-r:    3px;
+  --btn-fs:  12.5px;
 }
 
 html, body {
@@ -44,137 +49,45 @@ html, body {
   height: 100dvh;
 }
 
-/* ── TOOLBAR ───────────────────────────────────── */
+/* toolbar */
 #toolbar {
   height: var(--toolbar-h);
-  background: var(--toolbar-bg);
-  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
   display: flex;
   align-items: center;
-  padding: 0 14px;
-  gap: 10px;
+  padding: 0 8px;
+  gap: 8px;
   flex-shrink: 0;
-  position: relative;
   z-index: 100;
 }
 
-#title-input {
-  flex: 1;
-  background: transparent;
-  border: none;
-  outline: none;
-  font-family: var(--font-ui);
-  font-size: 14.5px;
-  font-style: italic;
-  color: var(--text);
-  min-width: 0;
-}
-#title-input::placeholder { color: var(--muted); }
-
-.view-toggle {
-  display: flex;
-  background: var(--border);
-  border-radius: 3px;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-.view-toggle button {
-  background: none;
-  border: none;
-  padding: 5px 11px;
-  font-family: var(--font-ui);
-  font-size: 12.5px;
-  color: var(--muted);
-  cursor: pointer;
-  transition: all 0.12s;
-}
-.view-toggle button.active {
-  background: var(--surface);
-  color: var(--accent);
-  box-shadow: 0 1px 3px rgba(0,0,0,.1);
-}
-
-.toolbar-right {
+#toolbar-status {
   display: flex;
   align-items: center;
   gap: 6px;
-  flex-shrink: 0;
-  position: relative;
-}
-
-.tb-btn {
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  padding: 4px 11px;
-  font-family: var(--font-ui);
-  font-size: 12.5px;
-  color: var(--text);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.12s;
-}
-.tb-btn:hover { background: var(--surface); border-color: var(--accent); color: var(--accent); }
-.tb-btn.fn { font-size: 11px; letter-spacing: .06em; padding: 4px 9px; }
-.tb-btn.snap { font-size: 11px; letter-spacing: .04em; }
-.tb-btn.psnap { font-size: 11px; letter-spacing: .04em; }
-.tb-btn.psnap.taken { color: var(--accent); border-color: var(--accent); }
-
-/* dropdown */
-.dropdown { position: relative; }
-.dropdown-menu {
-  position: absolute;
-  top: calc(100% + 5px);
-  right: 0;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  box-shadow: 0 5px 20px rgba(0,0,0,.13);
-  min-width: 210px;
-  overflow: hidden;
-  z-index: 200;
-}
-.dropdown-menu.hidden { display: none; }
-.dropdown-menu button {
-  display: block; width: 100%;
-  padding: 9px 15px;
-  text-align: left;
-  background: none; border: none;
-  border-bottom: 1px solid var(--border);
-  font-family: var(--font-ui);
-  font-size: 13px;
-  color: var(--text);
-  cursor: pointer;
-  transition: background .1s;
-}
-.dropdown-menu button:last-child { border-bottom: none; }
-.dropdown-menu button:hover { background: var(--bg); }
-.dropdown-menu button.danger { color: var(--danger); }
-.dropdown-menu .menu-sep { height: 1px; background: var(--border); }
-
-/* ── STATUS BAR ────────────────────────────────── */
-#status-bar {
-  height: var(--status-h);
-  background: var(--toolbar-bg);
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  padding: 0 14px;
-  gap: 14px;
-  flex-shrink: 0;
+  padding-right: 10px;
+  border-right: 1px solid var(--line);
   font-size: 11px;
-  color: var(--muted);
+  color: #8A8278;
   letter-spacing: .02em;
-  user-select: none;
   font-family: var(--font-ui);
+  flex-shrink: 0;
+  white-space: nowrap;
+  user-select: none;
 }
-#status-bar .pipe { width: 1px; height: 12px; background: var(--border); flex-shrink: 0; }
-#status-bar .spacer { flex: 1; }
-#status-save { font-style: italic; }
-#status-countdown { font-variant-numeric: tabular-nums; }
+
+.ts-sep {
+  width: 1px;
+  height: 10px;
+  background: var(--line);
+  flex-shrink: 0;
+}
+
 #status-snap-blink {
   display: inline-block;
-  width: 6px; height: 6px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: var(--accent);
   opacity: 0;
@@ -182,46 +95,185 @@ html, body {
   flex-shrink: 0;
 }
 #status-snap-blink.active { opacity: 1; }
+#status-save { font-style: italic; }
 
-/* ── MAIN ──────────────────────────────────────── */
-#main {
-  flex: 1;
-  overflow: hidden;
-  display: flex;
-  position: relative;
+#fs-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: var(--btn-r);
+  transition: background .12s;
+  user-select: none;
+  font-size: 11px;
+  color: #8A8278;
 }
+#fs-indicator:hover { background: var(--tint); }
+#fs-indicator .fs-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--line);
+  transition: background .3s;
+}
+#fs-indicator.linked .fs-dot { background: #3A8A50; }
+#fs-indicator.linked { color: #3A8A50; }
 
-/* ── WRITING AREA ──────────────────────────────── */
-#writing-area {
+/* inputs */
+#title-input {
   flex: 1;
   min-width: 0;
+  height: var(--btn-h);
+  background: var(--tint);
+  border: 1px solid transparent;
+  border-radius: var(--btn-r);
+  outline: none;
+  padding: 0 9px;
+  font-family: var(--font-ui);
+  font-size: 14.5px;
+  color: var(--text);
+  transition: border-color .12s, background .12s;
+}
+#title-input::placeholder { color: #ADA8A0; }
+#title-input:focus { background: var(--bg); border-color: var(--line); }
+
+#author-input {
+  height: var(--btn-h);
+  background: var(--tint);
+  border: 1px solid transparent;
+  border-radius: var(--btn-r);
+  outline: none;
+  padding: 0 9px;
+  font-family: var(--font-ui);
+  font-size: 14.5px;
+  color: #8A8278;
+  width: 110px;
+  flex-shrink: 0;
+  transition: border-color .12s, background .12s, color .12s;
+}
+#author-input::placeholder { color: #BDB7AF; }
+#author-input:focus { background: var(--bg); border-color: var(--line); color: var(--text); }
+
+/* unified button */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--btn-h);
+  padding: 0 var(--btn-px);
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: var(--btn-r);
+  font-family: var(--font-ui);
+  font-size: var(--btn-fs);
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .12s, border-color .12s, color .12s;
+  letter-spacing: .02em;
+}
+.btn:hover { background: var(--tint); border-color: var(--accent); color: var(--accent); }
+.btn.active { background: var(--tint); border-color: var(--accent); color: var(--accent); box-shadow: inset 0 1px 3px rgba(0,0,0,.07); }
+.btn.danger { color: var(--danger); }
+.btn.danger:hover { background: var(--tint); border-color: var(--danger); color: var(--danger); }
+.btn.taken { color: #B8922A; border-color: #C8A84B; }
+.btn.full { color: #8A8278; cursor: default; }
+.btn.full:hover { background: none; border-color: var(--line); color: #8A8278; }
+.btn.sz { padding: 0 8px; font-size: 11.5px; font-weight: 600; min-width: var(--btn-h); }
+
+.view-toggle { display: flex; flex-shrink: 0; }
+.view-toggle .btn { border-radius: 0; border-right-width: 0; }
+.view-toggle .btn:first-child { border-radius: var(--btn-r) 0 0 var(--btn-r); }
+.view-toggle .btn:last-child { border-radius: 0 var(--btn-r) var(--btn-r) 0; border-right-width: 1px; }
+
+.font-size-ctrl { display: flex; gap: 2px; flex-shrink: 0; }
+.toolbar-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+/* dropdown */
+.dropdown { position: relative; }
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  box-shadow: 0 5px 20px rgba(0,0,0,.11);
+  min-width: 220px;
   overflow: hidden;
+  z-index: 200;
+}
+.dropdown-menu.hidden { display: none; }
+.dropdown-menu button {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  height: 38px;
+  padding: 0 15px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  text-align: left;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+.dropdown-menu button:last-child { border-bottom: none; }
+.dropdown-menu button:hover { background: var(--tint); }
+.dropdown-menu button.danger { color: var(--danger); }
+
+/* main layout */
+#main { flex: 1; overflow: hidden; display: flex; position: relative; }
+#writing-area { flex: 1; min-width: 0; overflow: hidden; display: flex; flex-direction: column; }
+
+#editor-subheader {
+  height: var(--toolbar-h);
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  padding: 0 8px 0 24px;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.esub-spacer { flex: 1; }
+.esub-label {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .09em;
+  color: var(--muted-text);
 }
 
-#editor-pane,
-#preview-pane {
+#editor-pane, #preview-pane {
   flex: 1;
   overflow-y: auto;
   display: flex;
   justify-content: center;
-  padding: 52px 24px 140px;
   background: var(--bg);
 }
-#editor-pane.hidden, #preview-pane.hidden { display: none; }
+.hidden { display: none !important; }
 
 #editor {
   width: 100%;
-  max-width: var(--width);
   min-height: 100%;
   background: transparent;
-  border: none; outline: none; resize: none;
+  border: none;
+  outline: none;
+  resize: none;
   font-family: var(--font-mono);
   font-size: 16px;
   line-height: 1.8;
   color: var(--text);
   tab-size: 4;
+  padding-top: 1%;
+  padding-bottom: 1%;
+  margin-left: 10%;
+  margin-right: 10%;
   caret-color: var(--accent);
 }
 #editor::placeholder { color: #BDB7AF; font-style: italic; font-family: var(--font-ui); }
@@ -232,75 +284,24 @@ html, body {
   font-family: var(--font-text);
   font-size: 16.5px;
   line-height: 1.85;
-  color: var(--text);
 }
-#preview-content h1 { font-size: 1.85em; font-weight: 400; margin: 0 0 .6em; }
-#preview-content h2 { font-size: 1.4em; font-weight: 400; margin: 1.6em 0 .5em; }
-#preview-content h3 { font-size: 1.15em; font-weight: 400; margin: 1.3em 0 .4em; }
-#preview-content h4 { font-size: 1em; font-weight: 600; margin: 1.2em 0 .3em; }
-#preview-content p { margin: 0 0 1em; }
-#preview-content blockquote {
-  border-left: 3px solid var(--border);
-  padding-left: 1em;
-  color: var(--muted);
-  margin: 1em 0;
-  font-style: italic;
-}
-#preview-content code {
-  font-family: var(--font-mono);
-  font-size: .88em;
-  background: var(--toolbar-bg);
-  padding: 1px 5px;
-  border-radius: 3px;
-}
-#preview-content pre {
-  background: var(--toolbar-bg);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 14px;
-  overflow-x: auto;
-  margin: 0 0 1em;
-}
-#preview-content pre code { background: none; padding: 0; }
-#preview-content ul, #preview-content ol { margin: 0 0 1em 1.6em; }
-#preview-content li { margin: .25em 0; }
-#preview-content hr { border: none; border-top: 1px solid var(--border); margin: 2em 0; }
-#preview-content table { width: 100%; border-collapse: collapse; margin: 0 0 1em; }
-#preview-content th, #preview-content td {
-  border: 1px solid var(--border); padding: 7px 12px; text-align: left;
-}
-#preview-content th { background: var(--toolbar-bg); font-weight: 600; }
-#preview-content .footnote-ref { color: var(--accent); text-decoration: none; font-size: .8em; }
-#preview-content .fn-rule { margin-top: 3em; }
-#preview-content .footnotes { margin-top: .5em; }
-#preview-content .footnote { font-size: .875em; color: var(--muted); padding: 3px 0; }
-#preview-content .footnote-back { color: var(--accent); text-decoration: none; }
-#preview-content strong { font-weight: 600; }
-#preview-content em { font-style: italic; }
+#preview-content h1, #preview-content h2, #preview-content h3 { font-weight: 400; }
+#preview-content blockquote { border-left: 3px solid var(--line); padding-left: 1em; color: #8A8278; }
+#preview-content code { background: var(--tint); padding: 1px 5px; border-radius: 3px; }
+#preview-content pre { background: var(--tint); border: 1px solid var(--line); border-radius: 4px; padding: 14px; overflow-x: auto; }
+#preview-content hr { border: none; border-top: 1px solid var(--line); }
 
-/* ── SPLIT HANDLE ──────────────────────────────── */
 #split-handle {
-  width: 4px;
-  background: var(--border);
+  width: 3px;
+  background: var(--line);
   cursor: col-resize;
   flex-shrink: 0;
-  position: relative;
-  transition: background 0.15s;
-  z-index: 10;
+  transition: background .15s;
 }
-#split-handle::after {
-  content: '';
-  position: absolute;
-  top: 0; bottom: 0;
-  left: -5px; right: -5px;
-}
-#split-handle:hover,
-#split-handle.dragging {
-  background: var(--accent);
-}
+#split-handle:hover, #split-handle.dragging { background: var(--accent); }
 #split-handle.hidden { display: none; }
 
-/* ── NOTES PANE ────────────────────────────────── */
+/* ── Notes pane ─────────────────────────────────── */
 #notes-pane {
   display: flex;
   flex-direction: column;
@@ -312,281 +313,336 @@ html, body {
 }
 #notes-pane.hidden { display: none; }
 
-#notes-header {
+/* Tab bar */
+#notes-tabbar {
+  display: flex;
+  align-items: stretch;
+  background: var(--tint);
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
   height: var(--toolbar-h);
-  background: var(--toolbar-bg);
-  border-bottom: 1px solid var(--border);
+  overflow: visible;
+  position: relative;
+  z-index: 10;
+}
+
+.note-tab {
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
-  padding: 0 14px;
-  gap: 10px;
-  flex-shrink: 0;
+  gap: 3px;
+  padding: 0 8px 0 8px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--bg);
 }
-.notes-title {
+.note-tab + .note-tab { border-left: 1px solid var(--line); }
+
+.note-tab-label {
   font-family: var(--font-ui);
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: .09em;
-  color: var(--muted);
+  letter-spacing: .07em;
+  color: var(--muted-text);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.note-tab-wc {
+  font-size: 10px;
+  color: #9A948C;
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-family: var(--font-ui);
+  display: none;
+}
+
+/* Snap button inside tab — inherits .btn but overridden for compactness */
+.note-snap-btn {
   flex-shrink: 0;
 }
-.notes-header-spacer { flex: 1; }
-#notes-word-count {
+
+/* Icon-style close / clear buttons inside tab */
+.note-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--btn-h);
+  padding: 0 var(--btn-px);
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: var(--btn-r);
   font-family: var(--font-ui);
-  font-size: 11px;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
+  font-size: var(--btn-fs);
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .12s, border-color .12s, color .12s;
   letter-spacing: .02em;
   flex-shrink: 0;
 }
+.note-tab-btn:hover { background: var(--tint); border-color: var(--accent); color: var(--accent); }
+.note-tab-btn.clear-btn:hover { background: var(--tint); border-color: var(--danger); color: var(--danger); }
 
-.tb-btn.note-snap-btn { font-size: 11px; letter-spacing: .03em; flex-shrink: 0; }
-.tb-btn.note-snap-btn.taken { color: #B8922A; border-color: #C8A84B; }
-.tb-btn.note-snap-btn.full  { color: var(--muted); cursor: default; }
-.tb-btn.note-snap-btn.full:hover { background: none; border-color: var(--border); color: var(--muted); }
-
-#notes-inner {
-  flex: 1;
-  overflow-y: auto;
-  display: flex;
-  justify-content: center;
-  padding: 36px 20px 40px;
+.note-tab-add {
+  flex-shrink: 0;
+  margin-left: 8px;
 }
 
-#notes-editor {
+/* Note space columns */
+#notes-spaces-row {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.note-space {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.note-space + .note-space { border-left: 1px solid var(--line); }
+
+.note-space-editor {
+  flex: 1;
   width: 100%;
-  max-width: 520px;
-  min-height: 100%;
   background: transparent;
-  border: none; outline: none; resize: none;
+  border: none;
+  outline: none;
+  resize: none;
   font-family: var(--font-mono);
   font-size: 16px;
   line-height: 1.8;
   color: var(--text);
   tab-size: 4;
+  padding: 22px 18px 40px;
+  overflow-y: auto;
   caret-color: #B8922A;
 }
-#notes-editor::placeholder { color: #BDB7AF; font-style: italic; font-family: var(--font-ui); }
+.note-space-editor::placeholder { color: #BDB7AF; font-style: italic; font-family: var(--font-ui); }
 
-/* ── FONT SIZE CONTROLS ─────────────────────────── */
-.font-size-ctrl { display: flex; gap: 2px; flex-shrink: 0; }
-.tb-btn.sz-btn  { padding: 4px 8px; font-size: 11.5px; font-weight: 600; letter-spacing: -.01em; min-width: 28px; }
+.note-spaces-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  color: #9A948C;
+  font-size: 13px;
+  font-style: italic;
+  font-family: var(--font-ui);
+}
 
-/* ── TOAST ─────────────────────────────────────── */
+/* Space action menu (fixed dropdown) */
+#note-space-menu {
+  position: fixed;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  box-shadow: 0 5px 20px rgba(0,0,0,.13);
+  min-width: 170px;
+  overflow: hidden;
+  z-index: 400;
+}
+#note-space-menu.hidden { display: none; }
+#note-space-menu button {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 36px;
+  padding: 0 14px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+#note-space-menu button:last-child { border-bottom: none; }
+#note-space-menu button:hover { background: var(--tint); }
+
+/* Verifier error banner */
+#verifier-error {
+  position: fixed;
+  top: var(--toolbar-h);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #7A1A1A;
+  color: #FFF5F5;
+  padding: 10px 20px;
+  border-radius: 0 0 7px 7px;
+  font-size: 12.5px;
+  z-index: 600;
+  max-width: 560px;
+  width: 90%;
+  line-height: 1.6;
+  text-align: center;
+}
+#verifier-error.hidden { display: none; }
+#verifier-error strong { font-weight: 600; }
+#verifier-error button {
+  margin-top: 8px;
+  background: rgba(255,255,255,.15);
+  border: 1px solid rgba(255,255,255,.3);
+  color: #FFF5F5;
+  padding: 3px 12px;
+  border-radius: 3px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  cursor: pointer;
+}
+#verifier-error button:hover { background: rgba(255,255,255,.25); }
+
 #toast {
   position: fixed;
-  bottom: 22px; left: 50%;
+  bottom: 22px;
+  left: 50%;
   transform: translateX(-50%);
   background: var(--text);
-  color: #fff;
+  color: var(--bg);
   padding: 7px 15px;
   border-radius: 5px;
-  font-family: var(--font-ui);
   font-size: 12.5px;
   z-index: 999;
-  opacity: 1;
   transition: opacity .3s;
   pointer-events: none;
 }
 #toast.hidden { opacity: 0; }
-
-/* ── RESTORED BANNER ───────────────────────────── */
 #restored-banner {
   position: fixed;
-  top: calc(var(--toolbar-h) + var(--status-h));
-  left: 50%; transform: translateX(-50%);
+  top: var(--toolbar-h);
+  left: 50%;
+  transform: translateX(-50%);
   background: var(--accent);
-  color: #fff;
+  color: var(--bg);
   padding: 7px 20px;
   border-radius: 0 0 7px 7px;
-  font-family: var(--font-ui);
   font-size: 12.5px;
   z-index: 500;
-  transition: opacity .5s;
   white-space: nowrap;
 }
 #restored-banner.hidden { display: none; }
 
-/* ── HELP OVERLAY ──────────────────────────────── */
 #help-overlay {
-  position: fixed; inset: 0;
-  background: rgba(28,26,22,.55);
+  position: fixed;
+  inset: 0;
+  background: rgba(28,26,22,.52);
   z-index: 800;
-  display: flex; align-items: center; justify-content: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 #help-overlay.hidden { display: none; }
 #help-box {
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--bg);
+  border: 1px solid var(--line);
   border-radius: 8px;
   padding: 28px 32px;
   max-width: 480px;
   width: 90%;
-  font-family: var(--font-ui);
   font-size: 13.5px;
   line-height: 1.7;
 }
-#help-box h2 { font-size: 1.2em; font-weight: 600; margin: 0 0 1em; }
-#help-box h3 { font-size: .9em; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin: 1.2em 0 .5em; }
-#help-box code { font-family: var(--font-mono); font-size: .9em; background: var(--bg); padding: 1px 5px; border-radius: 3px; }
-#help-box p { margin: 0 0 .5em; }
-#help-close {
-  display: block; width: 100%; margin-top: 1.5em;
-  padding: 8px; border: 1px solid var(--border); border-radius: 4px;
-  background: none; font-family: var(--font-ui); font-size: 13px;
-  cursor: pointer; color: var(--text); transition: background .12s;
-}
-#help-close:hover { background: var(--bg); }
-
-/* ── FILE LINK STATUS ──────────────────────────── */
-#fs-indicator {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  color: var(--muted);
-  letter-spacing: .02em;
-  cursor: pointer;
-  padding: 3px 6px;
-  border-radius: 3px;
-  transition: background .12s;
-  user-select: none;
-  font-family: var(--font-ui);
-}
-#fs-indicator:hover { background: var(--surface); }
-#fs-indicator .fs-dot {
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: var(--border);
-  flex-shrink: 0;
-  transition: background .3s;
-}
-#fs-indicator.linked .fs-dot { background: #3A8A50; }
-#fs-indicator.linked { color: #3A8A50; }
-
-/* Prevent text selection while dragging split */
+#help-box code { background: var(--tint); padding: 1px 5px; border-radius: 3px; }
+#help-close { display: flex; width: 100%; margin-top: 1.5em; }
 body.split-dragging { user-select: none; cursor: col-resize; }
 body.split-dragging * { cursor: col-resize !important; }
 </style>
 </head>
 <body>
-
 <div id="app">
   <header id="toolbar">
-    <input id="title-input" type="text" placeholder="Untitled document…" autocomplete="off" spellcheck="false">
-
-    <div class="view-toggle">
-      <button id="btn-write" class="active">Write</button>
-      <button id="btn-preview">Preview</button>
-      <button id="btn-notes">Notes</button>
+    <div id="toolbar-status">
+      <span id="status-snap-blink"></span>
+      <span id="status-session">Session 1</span>
+      <span class="ts-sep"></span>
+      <span id="status-words">0 words</span>
+      <span id="status-writing-time"></span>
+      <span id="status-save"></span>
+      <span class="ts-sep"></span>
+      <span id="fs-indicator" title="Link JSON session file">
+        <span class="fs-dot"></span>
+        <span id="fs-label">Link file</span>
+      </span>
     </div>
-
+    <input id="title-input" type="text" placeholder="Untitled" autocomplete="off">
+    <input id="author-input" type="text" placeholder="Author" autocomplete="off">
+    <div class="view-toggle">
+      <button class="btn active" id="btn-write">Write</button>
+      <button class="btn" id="btn-notes">Notes</button>
+    </div>
+    <button class="btn" id="btn-preview">Preview</button>
     <div class="toolbar-right">
       <div class="font-size-ctrl">
-        <button class="tb-btn sz-btn" id="btn-sz-down" title="Decrease font size">A−</button>
-        <button class="tb-btn sz-btn" id="btn-sz-up"   title="Increase font size">A+</button>
+        <button class="btn sz" id="btn-sz-down">A−</button>
+        <button class="btn sz" id="btn-sz-up">A+</button>
       </div>
-      <button class="tb-btn fn" id="btn-fn" title="Insert footnote (Ctrl+Shift+F)">Fn↑</button>
-      <button class="tb-btn psnap" id="btn-progress-snap" title="Save a progress snapshot to the report">◎ Progress</button>
-      <button class="tb-btn" id="btn-help" title="Help">?</button>
+      <button class="btn" id="btn-help">?</button>
       <div class="dropdown">
-        <button class="tb-btn" id="btn-export-toggle">Export ▾</button>
+        <button class="btn" id="btn-export-toggle">File ▾</button>
         <div class="dropdown-menu hidden" id="export-menu">
-          <button id="btn-export-combined">↓ Document + Report (.html)</button>
-          <button id="btn-export-backup">↓ Session file (.json)</button>
-          <button id="btn-import-backup">↑ Restore session…</button>
+          <button id="btn-export-combined">Export Final Document and Report</button>
+          <button id="btn-export-backup">Save Session File</button>
+          <button id="btn-import-backup">Restore Session</button>
           <div class="menu-sep"></div>
-          <button id="btn-clear" class="danger">⚠ Clear & Reset</button>
+          <button id="btn-clear" class="danger">⚠ Clear &amp; Reset</button>
         </div>
       </div>
     </div>
   </header>
 
-  <div id="status-bar">
-    <span id="status-snap-blink"></span>
-    <span id="status-session">Session 1</span>
-    <span class="pipe"></span>
-    <span id="status-words">0 words</span>
-    <span class="pipe"></span>
-    <span id="status-countdown"></span>
-    <span class="spacer"></span>
-    <span id="status-save"></span>
-    <span class="pipe"></span>
-    <span id="fs-indicator" title="Click to link a .json session file for automatic disk saves">
-      <span class="fs-dot"></span>
-      <span id="fs-label">Link session file</span>
-    </span>
-  </div>
-
   <main id="main">
-    <!-- Writing / Preview area -->
     <div id="writing-area">
+      <div id="editor-subheader">
+        <span class="esub-label">Write</span>
+        <span class="esub-spacer"></span>
+        <button class="btn" id="btn-fn" title="Insert footnote (Ctrl+Shift+F)">Fn↑</button>
+        <button class="btn" id="btn-progress-snap" title="Save a progress snapshot (max 5)">◎ Progress <span id="progress-snap-count" style="opacity:.7">(0/5)</span></button>
+      </div>
       <div id="editor-pane">
-        <textarea id="editor"
-          spellcheck="true"
-          placeholder="Begin writing…&#10;&#10;Markdown is supported. Use [^1] to insert a footnote, or click Fn↑ in the toolbar.&#10;Snapshots are taken every 2–4 minutes. Ctrl+S to snapshot manually."></textarea>
+        <textarea id="editor" spellcheck="true" placeholder="Begin writing…&#10;&#10;Markdown + footnotes [^1]. Ctrl+S snapshot. Auto-snap every 1.5–3 min."></textarea>
       </div>
       <div id="preview-pane" class="hidden">
         <div id="preview-content"></div>
       </div>
     </div>
-
-    <!-- Resize handle -->
     <div id="split-handle" class="hidden"></div>
-
-    <!-- Notes pane (split) -->
     <div id="notes-pane" class="hidden">
-      <div id="notes-header">
-        <span class="notes-title">Notes</span>
-        <span class="notes-header-spacer"></span>
-        <span id="notes-word-count">0 words</span>
-        <button class="tb-btn note-snap-btn" id="btn-note-snap" title="Save a note snapshot (up to 5 per document)">◎ Snap <span id="note-snap-count">(0/5)</span></button>
-      </div>
-      <div id="notes-inner">
-        <textarea id="notes-editor"
-          spellcheck="true"
-          placeholder="Collect ideas, quotes, and references here…&#10;&#10;Use ◎ Snap to save a checkpoint — up to 5. Note snapshots are included in the exported report."></textarea>
-      </div>
+      <div id="notes-tabbar"><!-- rendered by JS --></div>
+      <div id="notes-spaces-row"><!-- rendered by JS --></div>
     </div>
   </main>
 </div>
 
+<!-- Fixed overlays -->
+<div id="verifier-error" class="hidden"></div>
 <div id="toast" class="hidden"></div>
 <div id="restored-banner" class="hidden"></div>
+<div id="note-space-menu" class="hidden"></div>
 <input type="file" id="backup-file-input" accept=".json" style="display:none">
 
 <div id="help-overlay" class="hidden">
   <div id="help-box">
-    <h2>Chronicle — Quick Reference</h2>
-
-    <h3>Markdown</h3>
-    <p><code># Heading 1</code> &nbsp; <code>## Heading 2</code> &nbsp; <code>**bold**</code> &nbsp; <code>*italic*</code></p>
-    <p><code>&gt; Blockquote</code> &nbsp; <code>- List item</code> &nbsp; <code>1. Numbered</code></p>
-    <p><code>`inline code`</code> &nbsp; <code>---</code> for a horizontal rule</p>
-
-    <h3>Footnotes</h3>
-    <p>Reference: <code>[^label]</code> &nbsp;&nbsp; Definition: <code>[^label]: Your footnote text.</code></p>
-    <p>Click <strong>Fn↑</strong> or press <code>Ctrl+Shift+F</code> to insert a numbered footnote.</p>
-
-    <h3>Notes Pane</h3>
-    <p>Click <strong>Notes</strong> in the view toggle to open a side-by-side scratch pad. Drag the divider to resize. Use <strong>◎ Snap</strong> in the Notes header to save up to 5 note checkpoints per document.</p>
-
-    <h3>Snapshots &amp; Sessions</h3>
-    <p>A <strong>snapshot</strong> is taken automatically every 2–4 minutes if content has changed. Snapshots are also taken on tab switch or window close. Each snapshot is signed with a chained HMAC-SHA256 covering its position, timestamp, word count, and the previous snapshot's signature — making reordering, insertion, or editing detectable.</p>
-    <p>A <strong>session</strong> is a continuous period of editing. A 30-minute gap starts a new session.</p>
-
-    <h3>Export</h3>
-    <p><strong>Document + Report</strong> — one file containing your rendered document followed by a full audit section: color-coded source showing <em>when</em> each passage was written, session table, and timeline.</p>
-
-    <h3>Persistence</h3>
-    <p>Content is auto-saved to your browser as a crash buffer. For durable saves, click <strong>Link session file</strong> in the status bar. The <code>.json</code> session file is self-contained and can restore everything on any device.</p>
-
-    <button id="help-close">Close</button>
+    <h2>Chronicle</h2>
+    <p><strong>Markdown</strong> • Footnotes: <code>[^1]</code> / <code>[^1]: text</code> • <kbd>Ctrl+Shift+F</kbd> inserts footnote.</p>
+    <p><strong>Snapshots:</strong> auto every 1.5–3 min, <kbd>Ctrl+S</kbd> manual. Up to 5 progress snapshots of your essay.</p>
+    <p><strong>Notes pane:</strong> up to 3 separate note spaces, each with up to 5 snapshots. Paste and external drop are disabled.</p>
+    <p><strong>Session identity:</strong> each session file has a unique verifier ID. Linking a file from a different session is blocked to prevent data loss.</p>
+    <p><strong>Link session file:</strong> persistent JSON on disk (File System Access API, Chrome/Edge only).</p>
+    <button class="btn" id="help-close">Close</button>
   </div>
 </div>
 
-<!-- Libraries -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/diff_match_patch/20121119/diff_match_patch.js"></script>
@@ -598,30 +654,42 @@ body.split-dragging * { cursor: col-resize !important; }
 //  CONSTANTS
 // ═══════════════════════════════════════════════════
 
-const SNAP_MIN_MS = 2 * 60 * 1000;
-const SNAP_MAX_MS = 4 * 60 * 1000;
-const SESSION_GAP = 30 * 60 * 1000;
-const DEBOUNCE_MS = 600;
+const SNAP_MIN_MS        = 1.5 * 60 * 1000;   // 90 s
+const SNAP_MAX_MS        = 3   * 60 * 1000;   // 180 s
+const SESSION_GAP        = 15  * 60 * 1000;   // 15 min inactivity → new session
+const DEBOUNCE_MS        = 600;
+const MAX_NOTE_SNAPS     = 5;
+const MAX_PROGRESS_SNAPS = 5;
+const MAX_NOTE_SPACES    = 3;
+const MIN_SPACE_PCT      = 25;                 // 25 vw minimum per open note space
 
-const HMAC_KEY_MATERIAL = 'chr-snap-integrity-v1-9f4a2e8d-c3b7-41f0-a6d5-7e1b3f829c14';
-
-const CONTENT_SEED   = 0xC4710D3E;
-const TITLE_SEED     = 0x8B2AF651;
-const NOTES_SEED     = 0x3F9A17C2;
-const NOTE_SNAP_SEED = 0xA7B3C9D1;
-
-const MAX_NOTE_SNAPS = 5;
+const HMAC_KEY_MATERIAL  = 'chr-snap-integrity-v1-9f4a2e8d-c3b7-41f0-a6d5-7e1b3f829c14';
+const CONTENT_SEED       = 0xC4710D3E;
+const TITLE_SEED         = 0x8B2AF651;
+const NOTES_SEED         = 0x3F9A17C2;
+const NOTE_SNAP_SEED     = 0xA7B3C9D1;
+const PROGRESS_SNAP_SEED = 0x9D3F5E2A;
 
 const K = {
-  CONTENT:       'chr2_content',
-  TITLE:         'chr2_title',
-  SNAPSHOTS:     'chr2_snapshots',
-  PROGRESS_SNAP: 'chr2_psnap',
-  NOTES:         'chr2_notes',
-  NOTE_SNAPS:    'chr2_nsnaps',
-  FONT_SIZE:     'chr2_fontsize',
-  SPLIT_PCT:     'chr2_splitpct',
+  CONTENT:       'chr4_content',
+  TITLE:         'chr4_title',
+  AUTHOR:        'chr4_author',
+  SNAPSHOTS:     'chr4_snapshots',
+  PROGRESS_SNAPS:'chr4_psnaps',
+  NOTES_1:       'chr4_notes_1',
+  NOTES_2:       'chr4_notes_2',
+  NOTES_3:       'chr4_notes_3',
+  NSNAPS_1:      'chr4_nsnaps_1',
+  NSNAPS_2:      'chr4_nsnaps_2',
+  NSNAPS_3:      'chr4_nsnaps_3',
+  SPACE_STATE:   'chr4_space_state',
+  FONT_SIZE:     'chr4_fontsize',
+  SPLIT_PCT:     'chr4_splitpct',
+  VERIFIER:      'chr4_verifier',
 };
+
+function noteContentKey(slot) { return K['NOTES_' + slot]; }
+function noteSnapsKey(slot)   { return K['NSNAPS_' + slot]; }
 
 const COLORS = [
   { bg: '#FDF6CC', line: '#D4A800', name: 'Amber'      },
@@ -636,32 +704,136 @@ const COLORS = [
 //  STATE
 // ═══════════════════════════════════════════════════
 
-let snapshots          = [];
-let lastSnapContent    = '';
-let lastSnapTime       = Date.now();
-let lastSaveTime       = null;
-let currentView        = 'write';
-let notesVisible       = false;
-let autosaveTimer      = null;
-let notesAutosaveTimer = null;
-let toastTimer         = null;
-let snapshotTimerId    = null;
-let countdownTimerId   = null;
-let nextSnapTime       = null;
-let fsHandle           = null;
-let fsPending          = false;
-let _hmacKey           = null;
-let _internalDrag      = false;
-let progressSnapshot   = null;
-let noteSnapshots      = [];
-let fontSize           = 16;
+let snapshots        = [];
+let lastSnapContent  = '';
+let lastSaveTime     = null;
+let currentView      = 'write';
+let notesVisible     = false;
+let autosaveTimer    = null;
+let toastTimer       = null;
+let snapshotTimerId  = null;
+let fsHandle         = null;
+let fsPending        = false;
+let _hmacKey         = null;
+let _internalDrag    = false;
+let progressSnapshots = [];          // array, max 5
+let fontSize         = 16;
 let splitNotesWidthPct = 33;
-let isDraggingSplit    = false;
+let isDraggingSplit  = false;
+let sessionVerifier  = null;         // 10-digit string or null
 
-const pageLoadTime = Date.now();
+// Note space state — 3 non-renumbering slots
+let noteSpaceState = [
+  { slot: 1, exists: true,  open: true,  content: '', snapshots: [] },
+  { slot: 2, exists: false, open: false, content: '', snapshots: [] },
+  { slot: 3, exists: false, open: false, content: '', snapshots: [] },
+];
+
+// Writing-time tracking
+let sessionCurrentStart = null;
+let sessionCurrentEnd   = null;
 
 // ═══════════════════════════════════════════════════
-//  BINARY HELPERS
+//  VERIFIER SYSTEM
+// ═══════════════════════════════════════════════════
+
+function generateVerifier() {
+  return String(Math.floor(Math.random() * 9000000000) + 1000000000);
+}
+
+function getOrCreateVerifier() {
+  if (sessionVerifier) return sessionVerifier;
+  const stored = storageGet(K.VERIFIER);
+  if (stored) { sessionVerifier = stored; return sessionVerifier; }
+  return null; // generated lazily on first save
+}
+
+function ensureVerifier() {
+  if (!sessionVerifier) {
+    sessionVerifier = generateVerifier();
+    storageSet(K.VERIFIER, sessionVerifier);
+  }
+  return sessionVerifier;
+}
+
+// Show a persistent error banner for verifier mismatches
+function showVerifierError(msg) {
+  const el = document.getElementById('verifier-error');
+  el.innerHTML = msg + '<br><button onclick="document.getElementById(\'verifier-error\').classList.add(\'hidden\')">Dismiss</button>';
+  el.classList.remove('hidden');
+  setTimeout(() => el.classList.add('hidden'), 18000);
+}
+
+// Returns { ok: true } or { ok: false, reason }
+// Also handles word-count threshold for merge checks.
+function checkVerifierForLoad(fileVerifier) {
+  const local = storageGet(K.VERIFIER);
+  if (!local) return { ok: true };           // no local session — safe to load
+  if (!fileVerifier) return { ok: 'warn', reason: 'unverifiable' }; // old file, no vid
+  if (local === fileVerifier) return { ok: true };
+  return { ok: false, reason: 'mismatch' };
+}
+
+function wordCountDiffPct(countA, countB) {
+  const larger = Math.max(countA, countB);
+  if (larger === 0) return 0;
+  return Math.abs(countA - countB) / larger;
+}
+
+// ═══════════════════════════════════════════════════
+//  WRITING-TIME TRACKING
+// ═══════════════════════════════════════════════════
+
+function trackWritingSession() {
+  const now = Date.now();
+  if (sessionCurrentStart === null) {
+    sessionCurrentStart = now;
+    sessionCurrentEnd   = now;
+  } else {
+    if (now - (sessionCurrentEnd || 0) > SESSION_GAP) {
+      sessionCurrentStart = now; // resumed after long gap
+    }
+    sessionCurrentEnd = now;
+  }
+}
+
+// Returns total writing time in ms.
+// While a session is active (last keystroke < SESSION_GAP ago), the counter
+// runs wall-clock from session start so pauses within a session are included.
+// After a session ends it freezes at the actual typing span.
+function computeTotalWritingTime() {
+  const sessions = computeSessions(snapshots);
+  let total = sessions.reduce((sum, s) => sum + (s.end - s.start), 0);
+
+  if (sessionCurrentStart !== null && sessionCurrentEnd !== null) {
+    const now = Date.now();
+    const isActive = (now - sessionCurrentEnd) < SESSION_GAP;
+    const lastSnapTs = snapshots.length > 0 ? snapshots[snapshots.length - 1].timestamp : 0;
+
+    if (isActive) {
+      // Session live: count wall-clock from session start (includes intra-session pauses)
+      if (sessionCurrentStart > lastSnapTs) {
+        total += now - sessionCurrentStart;
+      } else {
+        total += Math.max(0, now - lastSnapTs);
+      }
+    } else {
+      // Session ended: count up to last keystroke (no trailing idle)
+      if (sessionCurrentStart > lastSnapTs) {
+        total += sessionCurrentEnd - sessionCurrentStart;
+      } else {
+        total += Math.max(0, sessionCurrentEnd - lastSnapTs);
+      }
+    }
+  } else if (snapshots.length === 0 && sessionCurrentStart !== null) {
+    total += (sessionCurrentEnd || Date.now()) - sessionCurrentStart;
+  }
+
+  return total;
+}
+
+// ═══════════════════════════════════════════════════
+//  BINARY / OBFUSCATION HELPERS
 // ═══════════════════════════════════════════════════
 
 function uint8ToBase64(bytes) {
@@ -671,61 +843,41 @@ function uint8ToBase64(bytes) {
     binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
   return btoa(binary);
 }
-
 function base64ToUint8(b64) {
   const binary = atob(b64);
-  const out    = new Uint8Array(binary.length);
+  const out = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
   return out;
 }
 
-// ═══════════════════════════════════════════════════
-//  OBFUSCATION
-// ═══════════════════════════════════════════════════
-
 function deriveXorKey(seed) {
-  const km  = HMAC_KEY_MATERIAL;
-  const key = new Uint8Array(64);
-  let   s   = ((seed >>> 0) ^ 0xDEADBEEF) >>> 0;
+  const km = HMAC_KEY_MATERIAL, key = new Uint8Array(64);
+  let s = ((seed >>> 0) ^ 0xDEADBEEF) >>> 0;
   for (let i = 0; i < 64; i++) {
-    s      = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
     key[i] = (s ^ km.charCodeAt(i % km.length)) & 0xFF;
   }
   return key;
 }
-
 function obfuscateText(text, seed) {
   if (!text) return '';
-  const compressed = LZString.compressToUint8Array(text);
-  const key    = deriveXorKey(seed);
-  const result = new Uint8Array(compressed.length);
-  for (let i = 0; i < compressed.length; i++)
-    result[i] = compressed[i] ^ key[i % 64];
-  return uint8ToBase64(result);
+  const c = LZString.compressToUint8Array(text), k = deriveXorKey(seed), r = new Uint8Array(c.length);
+  for (let i = 0; i < c.length; i++) r[i] = c[i] ^ k[i % 64];
+  return uint8ToBase64(r);
 }
-
 function deobfuscateText(encoded, seed) {
   if (!encoded) return '';
   try {
-    const bytes      = base64ToUint8(encoded);
-    const key        = deriveXorKey(seed);
-    const compressed = new Uint8Array(bytes.length);
-    for (let i = 0; i < bytes.length; i++)
-      compressed[i] = bytes[i] ^ key[i % 64];
-    return LZString.decompressFromUint8Array(compressed) || '';
-  } catch (_) {
-    return '';
-  }
+    const b = base64ToUint8(encoded), k = deriveXorKey(seed), c = new Uint8Array(b.length);
+    for (let i = 0; i < b.length; i++) c[i] = b[i] ^ k[i % 64];
+    return LZString.decompressFromUint8Array(c) || '';
+  } catch (_) { return ''; }
 }
-
 async function chainedSeed(timestamp, prevContent) {
   const base = (timestamp & 0xFFFFFFFF) >>> 0;
   if (!prevContent) return base;
-  const hashBuf = await crypto.subtle.digest(
-    'SHA-256', new TextEncoder().encode(prevContent)
-  );
-  const mix = new DataView(hashBuf).getUint32(0, false);
-  return (base ^ mix) >>> 0;
+  const hashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(prevContent));
+  return (base ^ new DataView(hashBuf).getUint32(0, false)) >>> 0;
 }
 
 // ═══════════════════════════════════════════════════
@@ -735,12 +887,8 @@ async function chainedSeed(timestamp, prevContent) {
 async function getHmacKey() {
   if (_hmacKey) return _hmacKey;
   _hmacKey = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(HMAC_KEY_MATERIAL),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign', 'verify']
-  );
+    'raw', new TextEncoder().encode(HMAC_KEY_MATERIAL),
+    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']);
   return _hmacKey;
 }
 
@@ -752,185 +900,154 @@ function deriveInterval(sessionStartTs) {
   return Math.floor(SNAP_MIN_MS + (h / 0x100000000) * (SNAP_MAX_MS - SNAP_MIN_MS));
 }
 
-function snapMessage(snap, index, prevSig, sessionRhythm) {
-  return new TextEncoder().encode(
-    `${index}|${snap.timestamp}|${snap.wordCount}|${sessionRhythm}|${prevSig}`
-  );
+function snapMsg(snap, idx, prevSig, rhythm) {
+  return new TextEncoder().encode(`${idx}|${snap.timestamp}|${snap.wordCount}|${rhythm}|${prevSig}`);
 }
-
-async function signSnapshot(snap, index, prevSig, sessionRhythm) {
-  const key = await getHmacKey();
-  const buf = await crypto.subtle.sign('HMAC', key, snapMessage(snap, index, prevSig, sessionRhythm));
+async function signSnapshot(snap, idx, prevSig, rhythm) {
+  const k = await getHmacKey(), buf = await crypto.subtle.sign('HMAC', k, snapMsg(snap, idx, prevSig, rhythm));
   return uint8ToBase64(new Uint8Array(buf));
 }
-
-async function verifySnapshot(snap, index, prevSig, sessionRhythm) {
+async function verifySnapshot(snap, idx, prevSig, rhythm) {
   if (!snap.sig) return 'unsigned';
   try {
-    const key = await getHmacKey();
-    const ok  = await crypto.subtle.verify(
-      'HMAC', key,
-      base64ToUint8(snap.sig),
-      snapMessage(snap, index, prevSig, sessionRhythm)
-    );
-    return ok ? 'ok' : 'tampered';
-  } catch (_) {
-    return 'tampered';
-  }
+    const k = await getHmacKey();
+    return await crypto.subtle.verify('HMAC', k, base64ToUint8(snap.sig), snapMsg(snap, idx, prevSig, rhythm))
+      ? 'ok' : 'tampered';
+  } catch (_) { return 'tampered'; }
 }
 
-function computeSessionStarts(snaps, sessionIds) {
+function computeSessionStarts(snaps, ids) {
   const map = new Map();
-  for (let i = 0; i < snaps.length; i++) {
-    if (!map.has(sessionIds[i])) map.set(sessionIds[i], snaps[i].timestamp);
-  }
+  for (let i = 0; i < snaps.length; i++)
+    if (!map.has(ids[i])) map.set(ids[i], snaps[i].timestamp);
   return map;
 }
 
 async function verifyAllSnapshots(snaps) {
   if (!snaps.length) return { results: [], tampered: 0, unsigned: 0 };
-
-  const ids    = sessionIdsFor(snaps);
-  const starts = computeSessionStarts(snaps, ids);
-  const results = [];
-
+  const ids = sessionIdsFor(snaps), starts = computeSessionStarts(snaps, ids), results = [];
   for (let i = 0; i < snaps.length; i++) {
-    const prevSig = i === 0 ? 'genesis' : (snaps[i - 1].sig || 'genesis');
-    const rhythm  = deriveInterval(starts.get(ids[i]));
-    results.push(await verifySnapshot(snaps[i], i, prevSig, rhythm));
+    const prevSig = i === 0 ? 'genesis' : (snaps[i-1].sig || 'genesis');
+    results.push(await verifySnapshot(snaps[i], i, prevSig, deriveInterval(starts.get(ids[i]))));
   }
-
-  return {
-    results,
-    tampered: results.filter(r => r === 'tampered').length,
-    unsigned: results.filter(r => r === 'unsigned').length,
-  };
+  return { results, tampered: results.filter(r => r === 'tampered').length, unsigned: results.filter(r => r === 'unsigned').length };
 }
 
 async function resignChain(snaps) {
   if (!snaps.length) return;
-  const ids    = sessionIdsFor(snaps);
-  const starts = computeSessionStarts(snaps, ids);
+  const ids = sessionIdsFor(snaps), starts = computeSessionStarts(snaps, ids);
   for (let i = 0; i < snaps.length; i++) {
-    const prevSig = i === 0 ? 'genesis' : snaps[i - 1].sig;
-    const rhythm  = deriveInterval(starts.get(ids[i]));
-    snaps[i].sig  = await signSnapshot(snaps[i], i, prevSig, rhythm);
+    const prevSig = i === 0 ? 'genesis' : snaps[i-1].sig;
+    snaps[i].sig = await signSnapshot(snaps[i], i, prevSig, deriveInterval(starts.get(ids[i])));
   }
 }
 
 async function computeStructuralChecksum(snaps) {
-  const n   = snaps.length;
-  const ft  = n ? snaps[0].timestamp           : 0;
-  const lt  = n ? snaps[n - 1].timestamp       : 0;
-  const lw  = n ? snaps[n - 1].wordCount       : 0;
-  const lg  = n ? (snaps[n - 1].sig || '')     : '';
-  const msg = new TextEncoder().encode(`${n}|${ft}|${lt}|${lw}|${lg}`);
-  const key = await getHmacKey();
-  const buf = await crypto.subtle.sign('HMAC', key, msg);
+  const n = snaps.length, ft = n ? snaps[0].timestamp : 0, lt = n ? snaps[n-1].timestamp : 0,
+        lw = n ? snaps[n-1].wordCount : 0, lg = n ? (snaps[n-1].sig || '') : '';
+  const k = await getHmacKey(), buf = await crypto.subtle.sign('HMAC', k, new TextEncoder().encode(`${n}|${ft}|${lt}|${lw}|${lg}`));
   return uint8ToBase64(new Uint8Array(buf));
 }
 
 async function verifyStructuralChecksum(checksum, snaps) {
   if (!checksum) return 'unsigned';
   try {
-    const n   = snaps.length;
-    const ft  = n ? snaps[0].timestamp         : 0;
-    const lt  = n ? snaps[n - 1].timestamp     : 0;
-    const lw  = n ? snaps[n - 1].wordCount     : 0;
-    const lg  = n ? (snaps[n - 1].sig || '')   : '';
-    const msg = new TextEncoder().encode(`${n}|${ft}|${lt}|${lw}|${lg}`);
-    const key = await getHmacKey();
-    const ok  = await crypto.subtle.verify('HMAC', key, base64ToUint8(checksum), msg);
-    return ok ? 'ok' : 'tampered';
-  } catch (_) {
-    return 'tampered';
-  }
+    const n = snaps.length, ft = n ? snaps[0].timestamp : 0, lt = n ? snaps[n-1].timestamp : 0,
+          lw = n ? snaps[n-1].wordCount : 0, lg = n ? (snaps[n-1].sig || '') : '';
+    const k = await getHmacKey();
+    return await crypto.subtle.verify('HMAC', k, base64ToUint8(checksum), new TextEncoder().encode(`${n}|${ft}|${lt}|${lw}|${lg}`))
+      ? 'ok' : 'tampered';
+  } catch (_) { return 'tampered'; }
 }
 
 // ═══════════════════════════════════════════════════
-//  JSON SERIALIZATION
+//  JSON SERIALIZATION  (v4)
 // ═══════════════════════════════════════════════════
 
 async function serializeToJson() {
   const title   = document.getElementById('title-input').value;
+  const author  = document.getElementById('author-input').value;
   const content = document.getElementById('editor').value;
-  const notes   = document.getElementById('notes-editor').value;
+  const vid     = ensureVerifier();
 
   const obfSnaps = [];
-  let prevContent = '';
+  let prev = '';
   for (const s of snapshots) {
-    const seed = await chainedSeed(s.timestamp, prevContent);
-    obfSnaps.push({
-      ts: s.timestamp,
-      w:  s.wordCount,
-      d:  obfuscateText(s.content, seed),
-      g:  s.sig || null,
-    });
-    prevContent = s.content;
+    const seed = await chainedSeed(s.timestamp, prev);
+    obfSnaps.push({ ts: s.timestamp, w: s.wordCount, d: obfuscateText(s.content, seed), g: s.sig || null });
+    prev = s.content;
   }
 
-  const obfNoteSnaps = noteSnapshots.map(n => {
-    const seed = ((n.takenAt & 0xFFFFFFFF) ^ NOTE_SNAP_SEED) >>> 0;
+  const obfProgressSnaps = progressSnapshots.map(ps => ({
+    ts: ps.takenAt, e: ps.elapsed,
+    d: obfuscateText(ps.text, PROGRESS_SNAP_SEED), pt: ps.text
+  }));
+
+  const spacesData = noteSpaceState.map(sp => {
+    if (!sp.exists) return { slot: sp.slot, exists: false, open: false };
+    const obfNoteSnaps = sp.snapshots.map(n => {
+      const seed = ((n.takenAt & 0xFFFFFFFF) ^ (NOTE_SNAP_SEED ^ sp.slot)) >>> 0;
+      return { ts: n.takenAt, e: n.elapsed, d: obfuscateText(n.text, seed), pt: n.text };
+    });
     return {
-      ts: n.takenAt,
-      e:  n.elapsed,
-      d:  obfuscateText(n.text, seed),
-      pt: n.text,
+      slot: sp.slot, exists: true, open: sp.open,
+      n: obfuscateText(sp.content, NOTES_SEED ^ sp.slot),
+      notes_pt: sp.content,
+      ns: obfNoteSnaps,
     };
   });
 
-  const x = await computeStructuralChecksum(snapshots);
-
   return JSON.stringify({
-    v: 3,
-    t: obfuscateText(title,   TITLE_SEED),
-    c: obfuscateText(content, CONTENT_SEED),
-    plaintext:       content,
-    n:               obfuscateText(notes, NOTES_SEED),
-    notes_plaintext: notes,
-    s:  obfSnaps,
-    ns: obfNoteSnaps,
-    ps: progressSnapshot || null,
-    x,
+    v: 4, vid,
+    t: obfuscateText(title, TITLE_SEED), a: author,
+    c: obfuscateText(content, CONTENT_SEED), plaintext: content,
+    s: obfSnaps, ps: obfProgressSnaps,
+    spaces: spacesData,
+    x: await computeStructuralChecksum(snapshots),
   });
 }
 
 async function deserializeFromJson(jsonStr) {
   const data = JSON.parse(jsonStr);
-  if (!data || (data.v !== 3 && data.v !== 2)) throw new Error('not chronicle v2/v3');
+  if (!data || data.v !== 4) throw new Error('not chronicle v4');
 
   const title   = deobfuscateText(data.t || '', TITLE_SEED);
+  const author  = data.a || '';
   const content = deobfuscateText(data.c || '', CONTENT_SEED);
-  const notes   = data.n ? deobfuscateText(data.n, NOTES_SEED) : (data.notes_plaintext || '');
 
   const snaps = [];
-  let prevContent = '';
+  let prev = '';
   for (const s of data.s || []) {
-    const seed = data.v === 3
-      ? await chainedSeed(s.ts, prevContent)
-      : (s.ts & 0xFFFFFFFF) >>> 0;
-    const snapContent = deobfuscateText(s.d || '', seed);
-    snaps.push({
-      timestamp: s.ts,
-      wordCount: s.w,
-      content:   snapContent,
-      sig:       s.g || null,
-    });
-    prevContent = snapContent;
+    const seed = await chainedSeed(s.ts, prev);
+    const c = deobfuscateText(s.d || '', seed);
+    snaps.push({ timestamp: s.ts, wordCount: s.w, content: c, sig: s.g || null });
+    prev = c;
   }
 
-  const noteSnaps = (data.ns || []).map(n => {
-    const seed = ((n.ts & 0xFFFFFFFF) ^ NOTE_SNAP_SEED) >>> 0;
+  const progSnaps = (data.ps || []).map(ps => ({
+    takenAt: ps.ts, elapsed: ps.e,
+    text: deobfuscateText(ps.d || '', PROGRESS_SNAP_SEED) || ps.pt || ''
+  }));
+
+  const rawSpaces = data.spaces || [];
+  const spaces = [1, 2, 3].map(slot => {
+    const sp = rawSpaces.find(s => s.slot === slot);
+    if (!sp || !sp.exists) return { slot, exists: false, open: false, content: '', snapshots: [] };
+    const noteSnaps = (sp.ns || []).map(n => {
+      const seed = ((n.ts & 0xFFFFFFFF) ^ (NOTE_SNAP_SEED ^ slot)) >>> 0;
+      return { takenAt: n.ts, elapsed: n.e, text: deobfuscateText(n.d || '', seed) || n.pt || '' };
+    });
     return {
-      takenAt: n.ts,
-      elapsed: n.e,
-      text:    deobfuscateText(n.d || '', seed) || n.pt || '',
+      slot, exists: true, open: !!sp.open,
+      content: deobfuscateText(sp.n || '', NOTES_SEED ^ slot) || sp.notes_pt || '',
+      snapshots: noteSnaps,
     };
   });
 
   return {
-    title, content, notes, snapshots: snaps, noteSnapshots: noteSnaps,
-    _checksum: data.x || null, progressSnapshot: data.ps || null,
+    title, author, content, vid: data.vid || null,
+    snapshots: snaps, progressSnapshots: progSnaps,
+    spaces, _checksum: data.x || null,
   };
 }
 
@@ -938,137 +1055,115 @@ async function deserializeFromJson(jsonStr) {
 //  STORAGE
 // ═══════════════════════════════════════════════════
 
-function storageSet(key, value) {
-  try { localStorage.setItem(key, value); return true; }
-  catch (e) { console.warn('localStorage write failed', key, e); return false; }
-}
-
-function storageGet(key) {
-  try { return localStorage.getItem(key); }
-  catch (_) { return null; }
-}
+function storageSet(key, value) { try { localStorage.setItem(key, value); return true; } catch (_) { return false; } }
+function storageGet(key) { try { return localStorage.getItem(key); } catch (_) { return null; } }
 
 function updateFsIndicator() {
-  const el = document.getElementById('fs-indicator');
-  const lb = document.getElementById('fs-label');
+  const el = document.getElementById('fs-indicator'), lb = document.getElementById('fs-label');
   if (!el) return;
   if (fsHandle) {
-    el.classList.add('linked');
-    lb.textContent = 'Linked: ' + fsHandle.name;
+    el.classList.add('linked'); lb.textContent = 'Linked: ' + fsHandle.name;
     el.title = 'Session file linked — every save writes to disk. Click to relink.';
   } else {
     el.classList.remove('linked');
     lb.textContent = window.showSaveFilePicker ? 'Link session file' : 'No FS API';
-    el.title = window.showSaveFilePicker
-      ? 'Click to link a .json session file for automatic disk saves'
-      : 'File System API not available in this browser (use Chrome or Edge)';
   }
 }
 
 async function linkFile() {
-  if (!window.showSaveFilePicker) {
-    showToast('File System API not supported (use Chrome or Edge)');
-    return;
-  }
+  if (!window.showSaveFilePicker) { showToast('File System API not supported (use Chrome or Edge)'); return; }
   try {
-    const titleVal = document.getElementById('title-input').value;
-    const handle   = await window.showSaveFilePicker({
-      suggestedName: safeFilename(titleVal || 'chronicle') + '.json',
+    const handle = await window.showSaveFilePicker({
+      suggestedName: safeFilename(document.getElementById('title-input').value || 'chronicle') + '.json',
       types: [{ description: 'Chronicle session file', accept: { 'application/json': ['.json'] } }],
     });
-
     const rawText = await (await handle.getFile()).text();
-
     if (rawText.trim()) {
       try {
         const data = await deserializeFromJson(rawText);
-        const msg  = data.snapshots.length
-          ? `This file contains ${data.snapshots.length} snapshot${data.snapshots.length !== 1 ? 's' : ''} from "${data.title || 'Untitled'}".\n\nLoad session from this file?`
-          : `This file appears to be an empty Chronicle session.\n\nLink it for saving?`;
-        const load = snapshots.length === 0 || confirm(msg);
-        if (load) {
-          fsHandle = handle;
-          updateFsIndicator();
-          await loadFromJsonData(data);
-          showToast('Session restored — ' + handle.name);
+
+        // Verifier check
+        const vCheck = checkVerifierForLoad(data.vid);
+        if (!vCheck.ok) {
+          showVerifierError(
+            '<strong>Session mismatch.</strong> This file belongs to a different Chronicle session than your current cache.<br>' +
+            'To load it safely: (1) Save your current session via <em>File → Save Session File</em>, ' +
+            '(2) <em>File → Clear &amp; Reset</em>, then (3) link this file again.'
+          );
           return;
         }
-      } catch (_) {}
-    }
+        if (vCheck.ok === 'warn') {
+          if (!confirm('This file has no session ID (older format). Load it anyway?')) return;
+        }
 
-    fsHandle = handle;
-    updateFsIndicator();
-    await persistToJson();
-    showToast('Session file linked: ' + handle.name);
-  } catch (e) {
-    if (e.name !== 'AbortError') {
-      console.warn('linkFile failed', e);
-      showToast('Could not link file');
+        const msg = data.snapshots.length
+          ? `This file contains ${data.snapshots.length} snapshot${data.snapshots.length !== 1 ? 's' : ''} from "${data.title || 'Untitled'}".\n\nLoad session from this file?`
+          : 'This file appears to be an empty Chronicle session.\n\nLink it for saving?';
+        if (snapshots.length === 0 || confirm(msg)) {
+          fsHandle = handle; updateFsIndicator(); await loadFromJsonData(data);
+          showToast('Session restored — ' + handle.name); return;
+        }
+      } catch (err) {
+        if (rawText.trim()) showToast('Could not read file — may be wrong format (Chronicle v4 required)');
+      }
     }
-  }
+    fsHandle = handle; updateFsIndicator(); await persistToJson();
+    showToast('Session file linked: ' + handle.name);
+  } catch (e) { if (e.name !== 'AbortError') { console.warn('linkFile', e); showToast('Could not link file'); } }
 }
 
 async function persistToJson() {
-  if (!fsHandle) return;
-  if (fsPending) return;
-  fsPending = true;
-  await Promise.resolve();
-  fsPending = false;
-
+  if (!fsHandle || fsPending) return;
+  fsPending = true; await Promise.resolve(); fsPending = false;
   try {
-    const jsonStr  = await serializeToJson();
-    const writable = await fsHandle.createWritable();
-    await writable.write(jsonStr);
-    await writable.close();
+    const w = await fsHandle.createWritable();
+    await w.write(await serializeToJson()); await w.close();
   } catch (e) {
-    console.warn('persistToJson failed', e);
-    if (e.name === 'NotAllowedError') {
-      fsHandle = null;
-      updateFsIndicator();
-      showToast('File permission lost — relink to resume disk saves');
-    }
+    console.warn('persistToJson', e);
+    if (e.name === 'NotAllowedError') { fsHandle = null; updateFsIndicator(); showToast('File permission lost — relink to resume disk saves'); }
   }
 }
 
 async function loadFromJsonData(data) {
   const editor     = document.getElementById('editor');
   const titleInput = document.getElementById('title-input');
-  const notesEl    = document.getElementById('notes-editor');
+  const authorInput= document.getElementById('author-input');
 
-  editor.value     = data.content;
-  titleInput.value = data.title;
-  if (notesEl && data.notes) notesEl.value = data.notes;
-  document.title   = (data.title || 'Untitled') + ' — Chronicle';
+  editor.value = data.content; titleInput.value = data.title;
+  if (data.author) authorInput.value = data.author;
+  document.title = (data.title || 'Untitled') + ' — Chronicle';
 
   snapshots = data.snapshots;
-  if (snapshots.length) {
-    lastSnapContent = snapshots[snapshots.length - 1].content;
-    lastSnapTime    = snapshots[snapshots.length - 1].timestamp;
-  }
+  if (snapshots.length) lastSnapContent = snapshots[snapshots.length - 1].content;
   lastSaveTime = new Date();
 
-  if (Array.isArray(data.noteSnapshots)) {
-    noteSnapshots = data.noteSnapshots.slice(0, MAX_NOTE_SNAPS);
-    updateNoteSnapButton();
-    updateNotesWordCount();
+  progressSnapshots = Array.isArray(data.progressSnapshots) ? data.progressSnapshots.slice(0, MAX_PROGRESS_SNAPS) : [];
+  updateProgressButton();
+
+  if (Array.isArray(data.spaces)) {
+    noteSpaceState = data.spaces.map(sp => ({ ...sp, snapshots: [...(sp.snapshots || [])] }));
+    while (noteSpaceState.length < 3) noteSpaceState.push({ slot: noteSpaceState.length + 1, exists: false, open: false, content: '', snapshots: [] });
+    persistNoteSpaceState();
+    noteSpaceState.forEach(sp => {
+      if (sp.exists) {
+        try { storageSet(noteContentKey(sp.slot), LZString.compressToUTF16(sp.content)); } catch(_) {}
+        try { storageSet(noteSnapsKey(sp.slot), JSON.stringify(sp.snapshots)); } catch(_) {}
+      }
+    });
   }
 
-  if (data.progressSnapshot) {
-    progressSnapshot = data.progressSnapshot;
-    updateProgressButton();
-  }
+  // Sync verifier from file
+  if (data.vid) { sessionVerifier = data.vid; storageSet(K.VERIFIER, sessionVerifier); }
 
   storageSet(K.CONTENT, LZString.compressToUTF16(data.content));
   storageSet(K.TITLE, data.title);
-  if (data.notes) storageSet(K.NOTES, LZString.compressToUTF16(data.notes));
+  if (data.author) storageSet(K.AUTHOR, data.author);
   try {
     storageSet(K.SNAPSHOTS, LZString.compressToUTF16(JSON.stringify(snapshots)));
-    storageSet(K.NOTE_SNAPS, JSON.stringify(noteSnapshots));
+    storageSet(K.PROGRESS_SNAPS, JSON.stringify(progressSnapshots));
   } catch (_) {}
 
-  applyFontSize();
-  updateStatusBar();
-  scheduleNextSnapshot();
+  applyFontSize(); updateStatusBar(); scheduleNextSnapshot(); renderNotesUI();
 
   const [schk, chain] = await Promise.all([
     verifyStructuralChecksum(data._checksum, data.snapshots),
@@ -1076,84 +1171,300 @@ async function loadFromJsonData(data) {
   ]);
   const issues = [];
   if (schk === 'tampered') issues.push('structure modified');
-  if (chain.tampered > 0)  issues.push(`${chain.tampered} snapshot${chain.tampered !== 1 ? 's' : ''} altered`);
+  if (chain.tampered > 0) issues.push(`${chain.tampered} snapshot${chain.tampered !== 1 ? 's' : ''} altered`);
   if (issues.length) showToast('⚠ Integrity: ' + issues.join(', '));
 }
 
 function saveContent(text) {
-  storageSet(K.CONTENT, LZString.compressToUTF16(text)) ||
-    storageSet(K.CONTENT, text);
+  if (text.trim()) ensureVerifier(); // generate verifier on first content
+  storageSet(K.CONTENT, LZString.compressToUTF16(text)) || storageSet(K.CONTENT, text);
+  persistToJson();
+}
+function loadContent() { const r = storageGet(K.CONTENT); if (!r) return ''; try { const d = LZString.decompressFromUTF16(r); if (d != null) return d; } catch(_){} return r; }
+function saveSnapshots() { try { storageSet(K.SNAPSHOTS, LZString.compressToUTF16(JSON.stringify(snapshots))); } catch(_){} persistToJson(); }
+function loadSnapshots() { const r = storageGet(K.SNAPSHOTS); if (!r) return []; try { const p = JSON.parse(LZString.decompressFromUTF16(r)); return Array.isArray(p) ? p : []; } catch(_){ return []; } }
+function saveTitle(t)    { storageSet(K.TITLE, t); persistToJson(); }
+function loadTitle()     { return storageGet(K.TITLE) || ''; }
+function saveAuthor(a)   { storageSet(K.AUTHOR, a); persistToJson(); }
+function loadAuthor()    { return storageGet(K.AUTHOR) || ''; }
+
+// ═══════════════════════════════════════════════════
+//  NOTE SPACE MANAGEMENT
+// ═══════════════════════════════════════════════════
+
+function persistNoteSpaceState() {
+  const state = noteSpaceState.map(s => ({ exists: s.exists, open: s.open }));
+  storageSet(K.SPACE_STATE, JSON.stringify(state));
+}
+
+function saveNoteSpaceContent(slot) {
+  const sp = noteSpaceState[slot - 1];
+  if (!sp || !sp.exists) return;
+  try { storageSet(noteContentKey(slot), LZString.compressToUTF16(sp.content)); } catch(_) { storageSet(noteContentKey(slot), sp.content); }
   persistToJson();
 }
 
-function loadContent() {
-  const raw = storageGet(K.CONTENT);
-  if (!raw) return '';
-  try {
-    const dec = LZString.decompressFromUTF16(raw);
-    if (dec !== null && dec !== undefined) return dec;
-  } catch (_) {}
-  return raw;
+function saveNoteSpaceSnaps(slot) {
+  const sp = noteSpaceState[slot - 1];
+  if (!sp) return;
+  try { storageSet(noteSnapsKey(slot), JSON.stringify(sp.snapshots)); } catch(_) {}
+  persistToJson();
 }
 
-function saveSnapshots() {
-  try {
-    storageSet(K.SNAPSHOTS, LZString.compressToUTF16(JSON.stringify(snapshots)));
-  } catch (e) {
-    console.warn('snapshot localStorage save failed', e);
+function updateNoteSpaceSnapBtn(slot) {
+  const sp = noteSpaceState[slot - 1];
+  if (!sp) return;
+  const btn = document.querySelector(`.note-snap-btn[data-slot="${slot}"]`);
+  if (!btn) return;
+  const n = sp.snapshots.length;
+  btn.textContent = `◎ ${n}/${MAX_NOTE_SNAPS}`;
+  btn.classList.remove('full', 'taken');
+  if (n >= MAX_NOTE_SNAPS) { btn.classList.add('full'); btn.title = `Maximum note snapshots reached (${n}/${MAX_NOTE_SNAPS})`; }
+  else if (n > 0) { btn.classList.add('taken'); btn.title = `${n} note snapshot${n !== 1 ? 's' : ''} saved — click to add another`; }
+  else { btn.title = `Save a note snapshot (max ${MAX_NOTE_SNAPS})`; }
+}
+
+function updateNoteSpaceWordCount(slot) {
+  const sp = noteSpaceState[slot - 1];
+  if (!sp) return;
+  const el = document.querySelector(`.note-tab-wc[data-slot="${slot}"]`);
+  if (el) el.textContent = countWords(sp.content) + ' w';
+}
+
+function takeNoteSpaceSnapshot(slot) {
+  const sp = noteSpaceState[slot - 1];
+  if (!sp || !sp.exists) return;
+  if (!sp.content.trim()) { showToast('No notes to snapshot'); return; }
+  if (sp.snapshots.length >= MAX_NOTE_SNAPS) { showToast(`Maximum note snapshots reached (${MAX_NOTE_SNAPS}/${MAX_NOTE_SNAPS})`); return; }
+  const elapsed = computeTotalWritingTime();
+  sp.snapshots.push({ text: sp.content, elapsed, takenAt: Date.now() });
+  saveNoteSpaceSnaps(slot);
+  updateNoteSpaceSnapBtn(slot);
+  showToast(`Space ${slot} · Snapshot ${sp.snapshots.length}/${MAX_NOTE_SNAPS} — ${fmtElapsed(elapsed)} writing time`);
+}
+
+function addNoteSpace() {
+  const slot = noteSpaceState.find(s => !s.exists);
+  if (!slot) { showToast('Maximum 3 note spaces'); return; }
+  slot.exists = true;
+  slot.open = true;
+  slot.content = '';
+  slot.snapshots = [];
+  persistNoteSpaceState();
+  renderNotesUI();
+  showToast(`Space ${slot.slot} created`);
+}
+
+function openNoteSpace(slotNum) {
+  const sp = noteSpaceState[slotNum - 1];
+  if (!sp || !sp.exists) return;
+  sp.open = true;
+  persistNoteSpaceState();
+  renderNotesUI();
+  showToast(`Space ${slotNum} reopened`);
+}
+
+function closeNoteSpace(slotNum) {
+  const sp = noteSpaceState[slotNum - 1];
+  if (!sp) return;
+  sp.open = false;
+  persistNoteSpaceState();
+  renderNotesUI();
+}
+
+function clearNoteSpace(slotNum) {
+  const sp = noteSpaceState[slotNum - 1];
+  if (!sp) return;
+  if (!confirm(`Permanently clear Space ${slotNum} and all its snapshots?\n\nThis cannot be undone.`)) return;
+  sp.exists = false;
+  sp.open = false;
+  sp.content = '';
+  sp.snapshots = [];
+  try { localStorage.removeItem(noteContentKey(slotNum)); } catch(_) {}
+  try { localStorage.removeItem(noteSnapsKey(slotNum)); } catch(_) {}
+  persistNoteSpaceState();
+  persistToJson();
+  renderNotesUI();
+  showToast(`Space ${slotNum} cleared`);
+}
+
+// Show the fixed-position add/reopen menu
+function showNoteSpaceMenu(btn) {
+  closeNoteSpaceMenu();
+  const menu = document.getElementById('note-space-menu');
+  menu.innerHTML = '';
+
+  const closedSpaces = noteSpaceState.filter(s => s.exists && !s.open);
+  const totalExisting = noteSpaceState.filter(s => s.exists).length;
+
+  closedSpaces.forEach(sp => {
+    const item = document.createElement('button');
+    item.textContent = `Reopen Space ${sp.slot}`;
+    item.addEventListener('click', () => { openNoteSpace(sp.slot); closeNoteSpaceMenu(); });
+    menu.appendChild(item);
+  });
+
+  if (totalExisting < MAX_NOTE_SPACES) {
+    const item = document.createElement('button');
+    item.textContent = 'New Space';
+    item.addEventListener('click', () => { addNoteSpace(); closeNoteSpaceMenu(); });
+    menu.appendChild(item);
   }
-  persistToJson();
+
+  if (!menu.children.length) return;
+
+  const rect = btn.getBoundingClientRect();
+  menu.style.top  = (rect.bottom + 3) + 'px';
+  menu.style.right = (window.innerWidth - rect.right) + 'px';
+  menu.style.left  = 'auto';
+  menu.classList.remove('hidden');
+
+  // Close on outside click
+  setTimeout(() => {
+    const handler = e => {
+      if (!menu.contains(e.target) && e.target !== btn) { closeNoteSpaceMenu(); document.removeEventListener('click', handler); }
+    };
+    document.addEventListener('click', handler);
+  }, 0);
 }
 
-function loadSnapshots() {
-  const raw = storageGet(K.SNAPSHOTS);
-  if (!raw) return [];
-  try {
-    const json   = LZString.decompressFromUTF16(raw);
-    const parsed = JSON.parse(json);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (_) {
-    return [];
+function closeNoteSpaceMenu() {
+  document.getElementById('note-space-menu').classList.add('hidden');
+  document.getElementById('note-space-menu').innerHTML = '';
+}
+
+// ═══════════════════════════════════════════════════
+//  NOTE SPACE RENDER
+// ═══════════════════════════════════════════════════
+
+function renderNotesUI() {
+  const tabbar    = document.getElementById('notes-tabbar');
+  const spacesRow = document.getElementById('notes-spaces-row');
+  if (!tabbar || !spacesRow) return;
+  tabbar.innerHTML = '';
+  spacesRow.innerHTML = '';
+
+  const openSpaces  = noteSpaceState.filter(s => s.exists && s.open);
+  const closedCount = noteSpaceState.filter(s => s.exists && !s.open).length;
+  const totalExist  = noteSpaceState.filter(s => s.exists).length;
+  const canAdd      = closedCount > 0 || totalExist < MAX_NOTE_SPACES;
+  tabbar.classList.toggle('has-add', canAdd);
+
+  openSpaces.forEach(sp => {
+    // ── Tab ──────────────────────────────
+    const tab = document.createElement('div');
+    tab.className = 'note-tab';
+    tab.dataset.slot = sp.slot;
+
+    const label = document.createElement('span');
+    label.className = 'note-tab-label';
+    label.textContent = `Note Space ${sp.slot}`;
+
+    const wc = document.createElement('span');
+    wc.className = 'note-tab-wc';
+    wc.dataset.slot = sp.slot;
+    wc.textContent = countWords(sp.content) + ' w';
+
+    const snapBtn = document.createElement('button');
+    snapBtn.className = 'btn note-snap-btn';
+    snapBtn.dataset.slot = sp.slot;
+    const n = sp.snapshots.length;
+    snapBtn.textContent = `◎ ${n}/${MAX_NOTE_SNAPS}`;
+    if (n >= MAX_NOTE_SNAPS) { snapBtn.classList.add('full'); snapBtn.title = `Max snapshots reached (${n}/${MAX_NOTE_SNAPS})`; }
+    else if (n > 0) { snapBtn.classList.add('taken'); snapBtn.title = `${n} snapshot${n !== 1 ? 's' : ''} — add another`; }
+    else { snapBtn.title = `Save note snapshot (max ${MAX_NOTE_SNAPS})`; }
+    snapBtn.addEventListener('click', () => takeNoteSpaceSnapshot(sp.slot));
+
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'note-tab-btn';
+    closeBtn.textContent = '–';
+    closeBtn.title = `Hide Space ${sp.slot} (content preserved)`;
+    closeBtn.addEventListener('click', e => { e.stopPropagation(); closeNoteSpace(sp.slot); });
+
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'note-tab-btn clear-btn';
+    clearBtn.textContent = '×';
+    clearBtn.title = `Clear Space ${sp.slot} permanently`;
+    clearBtn.addEventListener('click', e => { e.stopPropagation(); clearNoteSpace(sp.slot); });
+
+    tab.appendChild(label);
+    tab.appendChild(wc);
+    tab.appendChild(snapBtn);
+    tab.appendChild(closeBtn);
+    tab.appendChild(clearBtn);
+    tabbar.appendChild(tab);
+
+    // ── Space column ──────────────────────
+    const spaceDiv = document.createElement('div');
+    spaceDiv.className = 'note-space';
+    spaceDiv.dataset.slot = sp.slot;
+
+    const ta = document.createElement('textarea');
+    ta.className = 'note-space-editor';
+    ta.dataset.slot = sp.slot;
+    ta.spellcheck = true;
+    ta.placeholder = `Space ${sp.slot} notes…`;
+    ta.value = sp.content;
+    ta.style.fontSize = fontSize + 'px';
+
+    // Paste & drop blocking
+    ta.addEventListener('paste', e => { e.preventDefault(); showToast('Pasting is disabled in Chronicle'); });
+    ta.addEventListener('dragstart', () => { _internalDrag = true; });
+    ta.addEventListener('dragend', () => { _internalDrag = false; });
+    ta.addEventListener('drop', e => { if (!_internalDrag) { e.preventDefault(); showToast('External drop is disabled'); } });
+
+    // Ctrl+V blocking (belt-and-suspenders)
+    ta.addEventListener('keydown', e => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'v') { e.preventDefault(); showToast('Pasting is disabled in Chronicle'); }
+    });
+
+    ta.addEventListener('input', () => {
+      trackWritingSession();
+      sp.content = ta.value;
+      updateNoteSpaceWordCount(sp.slot);
+      clearTimeout(sp._saveTimer);
+      sp._saveTimer = setTimeout(() => saveNoteSpaceContent(sp.slot), DEBOUNCE_MS);
+    });
+
+    spaceDiv.appendChild(ta);
+    spacesRow.appendChild(spaceDiv);
+  });
+
+  // [+] button
+  if (canAdd) {
+    const addBtn = document.createElement('button');
+    addBtn.className = 'btn note-tab-add';
+    addBtn.title = 'Add or reopen a note space';
+    addBtn.textContent = openSpaces.length === 0 ? 'Open space' : '+';
+    addBtn.addEventListener('click', e => { e.stopPropagation(); showNoteSpaceMenu(addBtn); });
+    if (openSpaces.length > 0) {
+      tabbar.querySelector('.note-tab:last-child').appendChild(addBtn);
+    } else {
+      tabbar.appendChild(addBtn);
+    }
   }
+
+  // No open spaces placeholder
+  if (openSpaces.length === 0) {
+    const ph = document.createElement('div');
+    ph.className = 'note-spaces-empty';
+    ph.innerHTML = '<span>No note spaces open.</span>';
+    spacesRow.appendChild(ph);
+  }
+
+  // Enforce minimum notes pane width
+  if (notesVisible) enforceNotesPaneWidth();
 }
 
-function saveTitle(title) {
-  storageSet(K.TITLE, title);
-  persistToJson();
-}
-
-function loadTitle() {
-  return storageGet(K.TITLE) || '';
-}
-
-function saveNotes(text) {
-  storageSet(K.NOTES, LZString.compressToUTF16(text)) ||
-    storageSet(K.NOTES, text);
-  persistToJson();
-}
-
-function loadNotes() {
-  const raw = storageGet(K.NOTES);
-  if (!raw) return '';
-  try {
-    const dec = LZString.decompressFromUTF16(raw);
-    if (dec !== null && dec !== undefined) return dec;
-  } catch (_) {}
-  return raw;
-}
-
-function saveNoteSnapshots() {
-  try { storageSet(K.NOTE_SNAPS, JSON.stringify(noteSnapshots)); } catch (_) {}
-  persistToJson();
-}
-
-function loadNoteSnapshots() {
-  const raw = storageGet(K.NOTE_SNAPS);
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.slice(0, MAX_NOTE_SNAPS) : [];
-  } catch (_) { return []; }
+function enforceNotesPaneWidth() {
+  const openCount = noteSpaceState.filter(s => s.exists && s.open).length || 1;
+  const minPct = Math.min(openCount * MIN_SPACE_PCT, 75);
+  if (splitNotesWidthPct < minPct) {
+    splitNotesWidthPct = minPct;
+    const p = document.getElementById('notes-pane');
+    if (p) p.style.width = splitNotesWidthPct + '%';
+    storageSet(K.SPLIT_PCT, splitNotesWidthPct);
+  }
 }
 
 // ═══════════════════════════════════════════════════
@@ -1163,158 +1474,93 @@ function loadNoteSnapshots() {
 function sessionIdsFor(snaps) {
   if (!snaps.length) return [];
   const ids = [1];
-  for (let i = 1; i < snaps.length; i++) {
-    const gap = snaps[i].timestamp - snaps[i - 1].timestamp;
-    ids.push(gap > SESSION_GAP ? ids[i - 1] + 1 : ids[i - 1]);
-  }
+  for (let i = 1; i < snaps.length; i++)
+    ids.push(snaps[i].timestamp - snaps[i-1].timestamp > SESSION_GAP ? ids[i-1] + 1 : ids[i-1]);
   return ids;
 }
 
 function computeSessions(snaps) {
-  const ids = sessionIdsFor(snaps);
-  const map = new Map();
+  const ids = sessionIdsFor(snaps), map = new Map();
   for (let i = 0; i < snaps.length; i++) {
     const sid = ids[i];
-    if (!map.has(sid)) {
-      map.set(sid, { id: sid, start: snaps[i].timestamp, end: snaps[i].timestamp,
-                     snapCount: 1, wordCount: snaps[i].wordCount });
-    } else {
-      const s = map.get(sid);
-      s.end = snaps[i].timestamp; s.wordCount = snaps[i].wordCount; s.snapCount++;
-    }
+    if (!map.has(sid)) map.set(sid, { id: sid, start: snaps[i].timestamp, end: snaps[i].timestamp, snapCount: 1, wordCount: snaps[i].wordCount });
+    else { const s = map.get(sid); s.end = snaps[i].timestamp; s.wordCount = snaps[i].wordCount; s.snapCount++; }
   }
   return [...map.values()];
 }
 
 function currentSessionId() {
   if (!snapshots.length) return 1;
-  const ids       = sessionIdsFor(snapshots);
-  const lastId    = ids[ids.length - 1];
-  const sinceSnap = Date.now() - snapshots[snapshots.length - 1].timestamp;
-  return sinceSnap > SESSION_GAP ? lastId + 1 : lastId;
+  const ids = sessionIdsFor(snapshots), lastId = ids[ids.length-1];
+  return Date.now() - snapshots[snapshots.length-1].timestamp > SESSION_GAP ? lastId + 1 : lastId;
 }
 
 // ═══════════════════════════════════════════════════
-//  PROGRESS SNAPSHOT
+//  FORMATTING HELPERS
 // ═══════════════════════════════════════════════════
 
-function docCreationTime() {
-  return snapshots.length ? snapshots[0].timestamp : pageLoadTime;
-}
-
-// Format elapsed milliseconds as H:MM
 function fmtElapsed(ms) {
-  const totalMin = Math.floor(ms / 60000);
-  const h = Math.floor(totalMin / 60);
-  const m = totalMin % 60;
-  return `${h}:${String(m).padStart(2, '0')}`;
+  const m = Math.floor(ms / 60000), h = Math.floor(m / 60);
+  return `${h}:${String(m % 60).padStart(2, '0')}`;
 }
-
-// Format duration as "Xh Ym" or "Xm Ys" etc.
 function fmtDur(ms) {
   const s = Math.floor(ms / 1000), m = Math.floor(s / 60), h = Math.floor(m / 60);
   if (h > 0) return `${h}h ${m % 60}m`;
   if (m > 0) return `${m}m ${s % 60}s`;
   return `${s}s`;
 }
-
-// Relative time ago (for status bar)
 function fmtAgo(date) {
-  const ms = Date.now() - date.getTime();
-  const s  = Math.floor(ms / 1000);
+  const ms = Date.now() - date.getTime(), s = Math.floor(ms / 1000);
   if (s < 10) return 'just now';
   if (s < 60) return `${s}s ago`;
   const m = Math.floor(s / 60);
   if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  const rm = m % 60;
+  const h = Math.floor(m / 60), rm = m % 60;
   return rm > 0 ? `${h}h ${rm}m ago` : `${h}h ago`;
 }
-
-// Full datetime string — used ONLY for export generation timestamp
 function fmtDateTime(ts) {
-  return new Date(ts).toLocaleString([], {
-    year: 'numeric', month: 'short', day: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
+  return new Date(ts).toLocaleString([], { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
+function countWords(text) { return text.trim() ? text.trim().split(/\s+/).length : 0; }
+
+// ═══════════════════════════════════════════════════
+//  PROGRESS SNAPSHOTS  (array, max 5)
+// ═══════════════════════════════════════════════════
 
 function updateProgressButton() {
   const btn = document.getElementById('btn-progress-snap');
+  const countEl = document.getElementById('progress-snap-count');
   if (!btn) return;
-  if (progressSnapshot) {
+  const n = progressSnapshots.length;
+  if (countEl) countEl.textContent = `(${n}/${MAX_PROGRESS_SNAPS})`;
+  btn.classList.remove('full', 'taken');
+  if (n >= MAX_PROGRESS_SNAPS) {
+    btn.classList.add('full');
+    btn.title = `Maximum progress snapshots reached (${n}/${MAX_PROGRESS_SNAPS})`;
+  } else if (n > 0) {
     btn.classList.add('taken');
-    btn.title = `Progress snapshot saved at ${fmtElapsed(progressSnapshot.elapsed)} writing time — click to update`;
+    btn.title = `${n} progress snapshot${n !== 1 ? 's' : ''} saved — click to add another`;
   } else {
-    btn.classList.remove('taken');
-    btn.title = 'Save a progress snapshot to the report';
+    btn.title = `Save a progress snapshot (max ${MAX_PROGRESS_SNAPS})`;
   }
 }
 
-function saveProgressSnapshot() {
-  try { storageSet(K.PROGRESS_SNAP, JSON.stringify(progressSnapshot)); } catch (_) {}
+function saveProgressSnapshots() {
+  try { storageSet(K.PROGRESS_SNAPS, JSON.stringify(progressSnapshots)); } catch(_) {}
   persistToJson();
-}
-
-function loadProgressSnapshot() {
-  const raw = storageGet(K.PROGRESS_SNAP);
-  if (!raw) return null;
-  try { return JSON.parse(raw); } catch (_) { return null; }
 }
 
 function takeProgressSnapshot() {
   const text = document.getElementById('editor').value;
-  if (!text.trim()) { showToast('Nothing to snapshot yet — start writing first'); return; }
-  const elapsed  = Date.now() - docCreationTime();
-  const isUpdate = !!progressSnapshot;
-  progressSnapshot = { text, elapsed, takenAt: Date.now() };
-  saveProgressSnapshot();
-  const label = fmtElapsed(elapsed);
-  showToast(isUpdate
-    ? `Progress snapshot updated — ${label} since start`
-    : `Progress snapshot saved — ${label} since start`);
-  updateProgressButton();
-}
-
-// ═══════════════════════════════════════════════════
-//  NOTE SNAPSHOTS
-// ═══════════════════════════════════════════════════
-
-function updateNoteSnapButton() {
-  const btn     = document.getElementById('btn-note-snap');
-  const countEl = document.getElementById('note-snap-count');
-  if (!btn) return;
-  const n = noteSnapshots.length;
-  if (countEl) countEl.textContent = `(${n}/${MAX_NOTE_SNAPS})`;
-  btn.classList.remove('full', 'taken');
-  if (n >= MAX_NOTE_SNAPS) {
-    btn.classList.add('full');
-    btn.title = 'Maximum note snapshots reached (5/5)';
-  } else if (n > 0) {
-    btn.classList.add('taken');
-    btn.title = `${n} note snapshot${n !== 1 ? 's' : ''} saved — click to add another`;
-  } else {
-    btn.title = 'Save a note snapshot (up to 5 per document)';
+  if (!text.trim()) { showToast('Nothing to snapshot yet'); return; }
+  if (progressSnapshots.length >= MAX_PROGRESS_SNAPS) {
+    showToast(`Maximum progress snapshots reached (${MAX_PROGRESS_SNAPS}/${MAX_PROGRESS_SNAPS})`); return;
   }
-}
-
-function updateNotesWordCount() {
-  const notesEl = document.getElementById('notes-editor');
-  const el      = document.getElementById('notes-word-count');
-  if (!el || !notesEl) return;
-  const words = countWords(notesEl.value);
-  el.textContent = `${words.toLocaleString()} word${words !== 1 ? 's' : ''}`;
-}
-
-function takeNoteSnapshot() {
-  const notesEl = document.getElementById('notes-editor');
-  if (!notesEl || !notesEl.value.trim()) { showToast('No notes to snapshot — write something first'); return; }
-  if (noteSnapshots.length >= MAX_NOTE_SNAPS) { showToast('Maximum note snapshots reached (5/5)'); return; }
-  const elapsed = Date.now() - docCreationTime();
-  noteSnapshots.push({ text: notesEl.value, elapsed, takenAt: Date.now() });
-  saveNoteSnapshots();
-  updateNoteSnapButton();
-  showToast(`Note snapshot ${noteSnapshots.length}/${MAX_NOTE_SNAPS} saved`);
+  const elapsed = computeTotalWritingTime();
+  progressSnapshots.push({ text, elapsed, takenAt: Date.now() });
+  saveProgressSnapshots();
+  showToast(`Progress snapshot ${progressSnapshots.length}/${MAX_PROGRESS_SNAPS} — ${fmtElapsed(elapsed)} writing time`);
+  updateProgressButton();
 }
 
 // ═══════════════════════════════════════════════════
@@ -1322,11 +1568,10 @@ function takeNoteSnapshot() {
 // ═══════════════════════════════════════════════════
 
 function applyFontSize() {
-  const editor   = document.getElementById('editor');
-  const notesEl  = document.getElementById('notes-editor');
-  if (editor)  editor.style.fontSize  = fontSize + 'px';
-  if (notesEl) notesEl.style.fontSize = fontSize + 'px';
-  try { localStorage.setItem(K.FONT_SIZE, fontSize); } catch (_) {}
+  const e = document.getElementById('editor');
+  if (e) e.style.fontSize = fontSize + 'px';
+  document.querySelectorAll('.note-space-editor').forEach(el => { el.style.fontSize = fontSize + 'px'; });
+  try { localStorage.setItem(K.FONT_SIZE, fontSize); } catch(_) {}
 }
 
 // ═══════════════════════════════════════════════════
@@ -1334,79 +1579,47 @@ function applyFontSize() {
 // ═══════════════════════════════════════════════════
 
 function setNotesWidth(pct) {
-  splitNotesWidthPct = Math.max(25, Math.min(75, pct));
-  const notesPane = document.getElementById('notes-pane');
-  if (notesPane) notesPane.style.width = splitNotesWidthPct + '%';
-  try { localStorage.setItem(K.SPLIT_PCT, splitNotesWidthPct); } catch (_) {}
+  const openCount = noteSpaceState.filter(s => s.exists && s.open).length || 1;
+  const minPct = Math.min(openCount * MIN_SPACE_PCT, 75);
+  splitNotesWidthPct = Math.max(minPct, Math.min(75, pct));
+  const p = document.getElementById('notes-pane');
+  if (p) p.style.width = splitNotesWidthPct + '%';
+  try { localStorage.setItem(K.SPLIT_PCT, splitNotesWidthPct); } catch(_) {}
 }
 
 function toggleNotes() {
   notesVisible = !notesVisible;
-  const notesPane = document.getElementById('notes-pane');
-  const handle    = document.getElementById('split-handle');
-  const btn       = document.getElementById('btn-notes');
-
+  const np = document.getElementById('notes-pane'), h = document.getElementById('split-handle'), btn = document.getElementById('btn-notes');
   if (notesVisible) {
-    notesPane.classList.remove('hidden');
-    notesPane.style.width = splitNotesWidthPct + '%';
-    handle.classList.remove('hidden');
+    // Ensure at least one space is open/exists
+    const anyOpen = noteSpaceState.some(s => s.exists && s.open);
+    if (!anyOpen) {
+      const first = noteSpaceState.find(s => s.exists);
+      if (first) { first.open = true; }
+      else { noteSpaceState[0].exists = true; noteSpaceState[0].open = true; }
+      persistNoteSpaceState();
+      renderNotesUI();
+    }
+    np.classList.remove('hidden');
+    enforceNotesPaneWidth();
+    np.style.width = splitNotesWidthPct + '%';
+    h.classList.remove('hidden');
     btn.classList.add('active');
   } else {
-    notesPane.classList.add('hidden');
-    handle.classList.add('hidden');
+    np.classList.add('hidden');
+    h.classList.add('hidden');
     btn.classList.remove('active');
   }
 }
 
 function initSplitResize() {
-  const handle   = document.getElementById('split-handle');
-  const main     = document.getElementById('main');
-  const notesPane = document.getElementById('notes-pane');
-
-  handle.addEventListener('mousedown', e => {
-    isDraggingSplit = true;
-    handle.classList.add('dragging');
-    document.body.classList.add('split-dragging');
-    e.preventDefault();
-  });
-
-  document.addEventListener('mousemove', e => {
-    if (!isDraggingSplit) return;
-    const rect     = main.getBoundingClientRect();
-    const notesW   = ((rect.right - e.clientX) / rect.width) * 100;
-    setNotesWidth(notesW);
-  });
-
-  document.addEventListener('mouseup', () => {
-    if (isDraggingSplit) {
-      isDraggingSplit = false;
-      handle.classList.remove('dragging');
-      document.body.classList.remove('split-dragging');
-    }
-  });
-
-  // Touch support
-  handle.addEventListener('touchstart', e => {
-    isDraggingSplit = true;
-    handle.classList.add('dragging');
-    e.preventDefault();
-  }, { passive: false });
-
-  document.addEventListener('touchmove', e => {
-    if (!isDraggingSplit) return;
-    const rect   = main.getBoundingClientRect();
-    const touch  = e.touches[0];
-    const notesW = ((rect.right - touch.clientX) / rect.width) * 100;
-    setNotesWidth(notesW);
-    e.preventDefault();
-  }, { passive: false });
-
-  document.addEventListener('touchend', () => {
-    if (isDraggingSplit) {
-      isDraggingSplit = false;
-      handle.classList.remove('dragging');
-    }
-  });
+  const handle = document.getElementById('split-handle'), main = document.getElementById('main');
+  handle.addEventListener('mousedown', e => { isDraggingSplit = true; handle.classList.add('dragging'); document.body.classList.add('split-dragging'); e.preventDefault(); });
+  document.addEventListener('mousemove', e => { if (!isDraggingSplit) return; const r = main.getBoundingClientRect(); setNotesWidth(((r.right - e.clientX) / r.width) * 100); });
+  document.addEventListener('mouseup', () => { if (isDraggingSplit) { isDraggingSplit = false; handle.classList.remove('dragging'); document.body.classList.remove('split-dragging'); } });
+  handle.addEventListener('touchstart', e => { isDraggingSplit = true; handle.classList.add('dragging'); e.preventDefault(); }, { passive: false });
+  document.addEventListener('touchmove', e => { if (!isDraggingSplit) return; const r = main.getBoundingClientRect(); setNotesWidth(((r.right - e.touches[0].clientX) / r.width) * 100); e.preventDefault(); }, { passive: false });
+  document.addEventListener('touchend', () => { if (isDraggingSplit) { isDraggingSplit = false; handle.classList.remove('dragging'); } });
 }
 
 // ═══════════════════════════════════════════════════
@@ -1415,81 +1628,57 @@ function initSplitResize() {
 
 function getCurrentSessionInterval() {
   if (!snapshots.length) return Math.round((SNAP_MIN_MS + SNAP_MAX_MS) / 2);
-  const ids       = sessionIdsFor(snapshots);
-  const sid       = ids[ids.length - 1];
-  const sinceSnap = Date.now() - snapshots[snapshots.length - 1].timestamp;
-  if (sinceSnap > SESSION_GAP) return Math.round((SNAP_MIN_MS + SNAP_MAX_MS) / 2);
-  const firstIdx = ids.findIndex(id => id === sid);
-  return deriveInterval(snapshots[firstIdx].timestamp);
+  const ids = sessionIdsFor(snapshots), sid = ids[ids.length-1];
+  if (Date.now() - snapshots[snapshots.length-1].timestamp > SESSION_GAP) return Math.round((SNAP_MIN_MS + SNAP_MAX_MS) / 2);
+  return deriveInterval(snapshots[ids.findIndex(id => id === sid)].timestamp);
 }
 
 function scheduleNextSnapshot() {
   clearTimeout(snapshotTimerId);
-  const interval  = getCurrentSessionInterval();
-  nextSnapTime    = Date.now() + interval;
   snapshotTimerId = setTimeout(async () => {
     const text = document.getElementById('editor').value;
-    if (text.trim() && text !== lastSnapContent) {
-      await takeSnapshot(text, false);
-    }
+    if (text.trim() && text !== lastSnapContent) await takeSnapshot(text, false);
     scheduleNextSnapshot();
-  }, interval);
-  updateCountdownDisplay();
+  }, getCurrentSessionInterval());
 }
 
 // ═══════════════════════════════════════════════════
 //  SNAPSHOTS
 // ═══════════════════════════════════════════════════
 
-function countWords(text) {
-  return text.trim() ? text.trim().split(/\s+/).length : 0;
-}
-
 async function takeSnapshot(text, silent) {
-  const index = snapshots.length;
-  const snap  = { timestamp: Date.now(), content: text, wordCount: countWords(text), sig: null };
+  const idx = snapshots.length;
+  const snap = { timestamp: Date.now(), content: text, wordCount: countWords(text), sig: null };
   snapshots.push(snap);
   lastSnapContent = text;
-  lastSnapTime    = snap.timestamp;
 
-  const prevSig = index === 0 ? 'genesis' : (snapshots[index - 1].sig || 'genesis');
-  const ids     = sessionIdsFor(snapshots);
-  const starts  = computeSessionStarts(snapshots, ids);
-  const rhythm  = deriveInterval(starts.get(ids[index]));
+  const prevSig = idx === 0 ? 'genesis' : (snapshots[idx-1].sig || 'genesis');
+  const ids = sessionIdsFor(snapshots), starts = computeSessionStarts(snapshots, ids);
+  snap.sig = await signSnapshot(snap, idx, prevSig, deriveInterval(starts.get(ids[idx])));
 
-  snap.sig = await signSnapshot(snap, index, prevSig, rhythm);
-
-  saveSnapshots();
-  updateStatusBar();
+  saveSnapshots(); updateStatusBar();
   if (!silent) blinkSnap();
 }
 
 // ═══════════════════════════════════════════════════
-//  MARKDOWN & FOOTNOTES
+//  MARKDOWN
 // ═══════════════════════════════════════════════════
 
 function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-          .replace(/"/g,'&quot;');
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 function processFootnotes(md) {
-  const defs  = new Map();
-  const nodef = md.replace(/^\[\^([^\]\r\n]+)\]:\s*(.+)$/gm, (_, label, text) => {
-    defs.set(label.trim(), text.trim()); return '';
-  });
-  let counter = 0;
-  const numMap = new Map();
+  const defs = new Map();
+  const nodef = md.replace(/^\[\^([^\]\r\n]+)\]:\s*(.+)$/gm, (_, l, t) => { defs.set(l.trim(), t.trim()); return ''; });
+  let counter = 0; const numMap = new Map();
   const processed = nodef.replace(/\[\^([^\]\r\n]+)\]/g, (_, label) => {
     label = label.trim();
     if (!numMap.has(label)) numMap.set(label, ++counter);
-    const n     = numMap.get(label);
-    const title = defs.has(label) ? ` title="${escHtml(defs.get(label))}"` : '';
+    const n = numMap.get(label), title = defs.has(label) ? ` title="${escHtml(defs.get(label))}"` : '';
     return `<sup id="fnref-${label}"><a href="#fn-${label}" class="footnote-ref"${title}>${n}</a></sup>`;
   });
-  const fns = [...defs.entries()].map(([label, text]) => ({
-    label, text, num: numMap.get(label) || ++counter
-  })).sort((a, b) => a.num - b.num);
+  const fns = [...defs.entries()].map(([l, t]) => ({ label: l, text: t, num: numMap.get(l) || ++counter })).sort((a,b) => a.num - b.num);
   return { processed, fns };
 }
 
@@ -1499,8 +1688,7 @@ function renderMd(md) {
   if (fns.length) {
     html += '<hr class="fn-rule"><section class="footnotes">';
     for (const fn of fns)
-      html += `<div class="footnote" id="fn-${fn.label}"><sup>${fn.num}</sup> ${fn.text} ` +
-              `<a href="#fnref-${fn.label}" class="footnote-back">↩</a></div>`;
+      html += `<div class="footnote" id="fn-${fn.label}"><sup>${fn.num}</sup> ${fn.text} <a href="#fnref-${fn.label}" class="footnote-back">↩</a></div>`;
     html += '</section>';
   }
   return html;
@@ -1510,18 +1698,30 @@ function renderMd(md) {
 //  DIFF-BASED COLORING
 // ═══════════════════════════════════════════════════
 
+function wordNormalizeProv(text, prov) {
+  let i = 0;
+  while (i < text.length) {
+    if (/\s/.test(text[i])) { i++; continue; }
+    let j = i;
+    while (j < text.length && !/\s/.test(text[j])) j++;
+    const votes = new Map();
+    for (let k = i; k < j; k++) if (prov[k] !== -1) votes.set(prov[k], (votes.get(prov[k]) || 0) + 1);
+    if (votes.size > 0) {
+      let best = -1, bestN = 0;
+      for (const [c, n] of votes) if (n > bestN) { best = c; bestN = n; }
+      for (let k = i; k < j; k++) if (prov[k] !== -1) prov[k] = best;
+    }
+    i = j;
+  }
+}
+
 function buildColorSegments(snaps) {
   if (!snaps.length) return [];
   if (snaps.length === 1) return [{ text: snaps[0].content, ci: 0 }];
-
-  const dmp = new diff_match_patch();
-  dmp.Diff_Timeout = 3.0;
-  let text = snaps[0].content;
-  let prov = Array.from({ length: text.length }, () => 0);
-
+  const dmp = new diff_match_patch(); dmp.Diff_Timeout = 3.0;
+  let text = snaps[0].content, prov = Array.from({ length: text.length }, () => 0);
   for (let si = 1; si < snaps.length; si++) {
-    const ci    = si % COLORS.length;
-    const diffs = dmp.diff_main(text, snaps[si].content);
+    const ci = si % COLORS.length, diffs = dmp.diff_main(text, snaps[si].content);
     dmp.diff_cleanupSemantic(diffs);
     let newText = '', newProv = [], pos = 0;
     for (const [op, chunk] of diffs) {
@@ -1531,322 +1731,256 @@ function buildColorSegments(snaps) {
     }
     text = newText; prov = newProv;
   }
-
-  // Word-boundary normalisation
-  {
-    let i = 0;
-    while (i < text.length) {
-      if (/\s/.test(text[i])) { i++; continue; }
-      let j = i;
-      while (j < text.length && !/\s/.test(text[j])) j++;
-      const votes = new Map();
-      for (let k = i; k < j; k++) votes.set(prov[k], (votes.get(prov[k]) || 0) + 1);
-      let best = prov[i], bestN = 0;
-      for (const [color, n] of votes) { if (n > bestN) { best = color; bestN = n; } }
-      for (let k = i; k < j; k++) prov[k] = best;
-      i = j;
-    }
-  }
-
+  wordNormalizeProv(text, prov);
   if (!text.length) return [];
-  const segs = [];
-  let start = 0, cur = prov[0];
+  const segs = []; let start = 0, cur = prov[0];
   for (let i = 1; i <= text.length; i++) {
-    if (i === text.length || prov[i] !== cur) {
-      segs.push({ text: text.slice(start, i), ci: cur });
-      start = i;
-      if (i < text.length) cur = prov[i];
-    }
+    if (i === text.length || prov[i] !== cur) { segs.push({ text: text.slice(start, i), ci: cur }); start = i; if (i < text.length) cur = prov[i]; }
   }
   return segs;
+}
+
+function buildColorSegmentsWithCurrent(snaps, currentContent) {
+  if (!currentContent) return [];
+  if (!snaps.length) return [{ text: currentContent, ci: -1 }];
+  const baseSegs = buildColorSegments(snaps);
+  const baseText = baseSegs.map(s => s.text).join('');
+  if (currentContent === baseText) return baseSegs;
+  const prov = [];
+  for (const seg of baseSegs) for (let k = 0; k < seg.text.length; k++) prov.push(seg.ci);
+  const dmp = new diff_match_patch(); dmp.Diff_Timeout = 3.0;
+  const diffs = dmp.diff_main(baseText, currentContent);
+  dmp.diff_cleanupSemantic(diffs);
+  let newText = '', newProv = [], pos = 0;
+  for (const [op, chunk] of diffs) {
+    if (op === 0)       { newText += chunk; for (let i = 0; i < chunk.length; i++) newProv.push(pos + i < prov.length ? prov[pos + i] : -1); pos += chunk.length; }
+    else if (op === -1) { pos += chunk.length; }
+    else                { newText += chunk; for (let i = 0; i < chunk.length; i++) newProv.push(-1); }
+  }
+  wordNormalizeProv(newText, newProv);
+  if (!newText.length) return [];
+  const result = []; let start = 0, cur = newProv[0];
+  for (let i = 1; i <= newText.length; i++) {
+    if (i === newText.length || newProv[i] !== cur) { result.push({ text: newText.slice(start, i), ci: cur }); start = i; if (i < newText.length) cur = newProv[i]; }
+  }
+  return result;
 }
 
 // ═══════════════════════════════════════════════════
 //  HELPERS
 // ═══════════════════════════════════════════════════
 
-function safeFilename(s) {
-  return (s || 'document').replace(/[^a-zA-Z0-9_\-\u00C0-\u024F ]/g, '').trim() || 'document';
-}
+function safeFilename(s) { return (s || 'document').replace(/[^a-zA-Z0-9_\-\u00C0-\u024F ]/g, '').trim() || 'document'; }
 
 function downloadHtml(filename, html) {
-  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' }), url = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = url; a.download = filename; document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 // ═══════════════════════════════════════════════════
-//  EXPORT — COMBINED DOCUMENT + REPORT
+//  EXPORT
 // ═══════════════════════════════════════════════════
 
 const BASE_STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,600;1,8..60,300;1,8..60,400&display=swap');
-  body { max-width: 720px; margin: 60px auto; padding: 0 24px 120px;
-         font-family: 'Source Serif 4', Georgia, serif; font-size: 17px;
-         line-height: 1.85; color: #1C1A16; background: #FEFCF8; }
-  h1 { font-size: 2em; font-weight: 400; margin: 0 0 1em; }
+  body { max-width: 720px; margin: 60px auto; padding: 0 24px 120px; font-family: 'Source Serif 4', Georgia, serif; font-size: 17px; line-height: 1.85; color: #1C1A16; background: #FEFCF8; }
+  h1 { font-size: 2em; font-weight: 400; margin: 0 0 .25em; }
   h2 { font-size: 1.5em; font-weight: 400; margin: 1.6em 0 .5em; }
   h3 { font-size: 1.2em; font-weight: 400; margin: 1.3em 0 .4em; }
-  h4 { font-size: 1em;   font-weight: 600; margin: 1.2em 0 .3em; }
-  p  { margin: 0 0 1em; }
-  blockquote { border-left: 3px solid #D4CEC2; padding-left: 1em;
-               color: #72695E; margin: 1em 0; font-style: italic; }
-  code { font-family: 'Source Serif 4', Georgia, serif; font-size: .88em;
-         background: #ECEAE3; padding: 1px 5px; border-radius: 3px; }
-  pre  { background: #ECEAE3; border: 1px solid #D4CEC2; border-radius: 4px;
-         padding: 14px; overflow-x: auto; margin: 0 0 1em; }
+  p { margin: 0 0 1em; }
+  blockquote { border-left: 3px solid #D4CEC2; padding-left: 1em; color: #72695E; margin: 1em 0; font-style: italic; }
+  code { font-family: 'Source Serif 4', Georgia, serif; font-size: .88em; background: #ECEAE3; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #ECEAE3; border: 1px solid #D4CEC2; border-radius: 4px; padding: 14px; overflow-x: auto; margin: 0 0 1em; }
   pre code { background: none; padding: 0; }
   ul, ol { margin: 0 0 1em 1.6em; } li { margin: .25em 0; }
   hr { border: none; border-top: 1px solid #D4CEC2; margin: 2em 0; }
   table { width: 100%; border-collapse: collapse; margin: 0 0 1em; }
   th, td { border: 1px solid #D4CEC2; padding: 7px 12px; text-align: left; }
   th { background: #ECEAE3; font-weight: 600; }
-  .footnote-ref  { color: #2C4B70; text-decoration: none; }
+  .footnote-ref { color: #2C4B70; text-decoration: none; }
   .fn-rule { margin-top: 3em; }
   .footnote { font-size: .875em; color: #72695E; padding: 3px 0; }
   .footnote-back { color: #2C4B70; text-decoration: none; }
-  strong { font-weight: 600; }
-  em { font-style: italic; }
+  strong { font-weight: 600; } em { font-style: italic; }
 `;
 
 const REPORT_STYLES = `
-  .report-divider {
-    border: none; border-top: 3px solid #D4CEC2;
-    margin: 80px 0 60px; page-break-before: always;
-  }
-  .report-section { font-family: 'Source Sans 3', system-ui, sans-serif; }
-  .report-section h1 { font-size: 1.6em; font-weight: 600; margin: 0 0 4px;
-                        font-family: 'Source Sans 3', system-ui, sans-serif; }
-  .report-section h2 { font-size: 1em; font-weight: 600; margin: 2.2em 0 .8em;
-                        color: #2C4B70; border-bottom: 1px solid #D4CEC2;
-                        padding-bottom: 6px; letter-spacing: .02em; text-transform: uppercase;
-                        font-family: 'Source Sans 3', system-ui, sans-serif; font-size: .85em; }
-  .report-section .sub { color: #72695E; font-style: italic; margin: 0 0 2.2em;
-                          font-size: .9em; font-family: 'Source Sans 3', system-ui, sans-serif; }
-  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-           gap: 10px; margin: 0 0 2em; }
+  .doc-byline { color: #72695E; font-style: italic; margin: 0 0 2.5em; }
+  .report-divider { border: none; border-top: 3px solid #D4CEC2; margin: 80px 0 60px; page-break-before: always; }
+  .rs { font-family: 'Source Sans 3', system-ui, sans-serif; }
+  .rs h1 { font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 1.5em; font-weight: 600; margin: 0 0 4px; }
+  .rs h2 { font-family: 'Source Sans 3', system-ui, sans-serif; font-size: .8em; font-weight: 600; margin: 2.2em 0 .8em; color: #2C4B70; border-bottom: 1px solid #D4CEC2; padding-bottom: 6px; letter-spacing: .04em; text-transform: uppercase; }
+  .rs h3 { font-family: 'Source Sans 3', system-ui, sans-serif; font-size: .75em; font-weight: 600; margin: 1.6em 0 .5em; color: #4A6A90; letter-spacing: .04em; text-transform: uppercase; }
+  .rs .sub { color: #72695E; font-style: italic; margin: 0 0 2em; font-size: .9em; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin: 0 0 2em; }
   .stat { background: #ECEAE3; border: 1px solid #D4CEC2; border-radius: 5px; padding: 12px 16px; }
-  .stat-l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: #72695E;
-             font-family: 'Source Sans 3', system-ui, sans-serif; }
-  .stat-v { font-size: 1.5em; font-weight: 600; color: #1C1A16; margin-top: 3px;
-             font-family: 'Source Sans 3', system-ui, sans-serif; }
-  .report-table { width: 100%; border-collapse: collapse; font-size: 13px;
-                  font-family: 'Source Sans 3', system-ui, sans-serif; }
-  .report-table th { text-align: left; padding: 8px 12px; background: #ECEAE3;
-                      border: 1px solid #D4CEC2; font-size: 11px; text-transform: uppercase;
-                      letter-spacing: .06em; color: #72695E; font-weight: 600; }
-  .report-table td { padding: 8px 12px; border: 1px solid #D4CEC2; }
-  .report-table tr:nth-child(even) td { background: #F5F1EA; }
-  .tl { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px;
-         font-size: 12.5px; font-family: 'Source Sans 3', system-ui, sans-serif; }
-  .tl-row { display: flex; flex-direction: column; gap: 3px; padding: 7px 10px;
-             border-left: 3px solid; border-radius: 0 3px 3px 0; background: #FAFAFA; }
-  .tl-num  { color: #72695E; font-size: 11px; letter-spacing: .01em; }
+  .stat-l { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: #72695E; font-family: 'Source Sans 3', system-ui, sans-serif; }
+  .stat-v { font-size: 1.5em; font-weight: 600; color: #1C1A16; margin-top: 3px; font-family: 'Source Sans 3', system-ui, sans-serif; }
+  .rtable { width: 100%; border-collapse: collapse; font-size: 13px; font-family: 'Source Sans 3', system-ui, sans-serif; }
+  .rtable th { text-align: left; padding: 8px 12px; background: #ECEAE3; border: 1px solid #D4CEC2; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: #72695E; font-weight: 600; }
+  .rtable td { padding: 8px 12px; border: 1px solid #D4CEC2; }
+  .rtable tr:nth-child(even) td { background: #F5F1EA; }
+  .tl { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; font-size: 12.5px; font-family: 'Source Sans 3', system-ui, sans-serif; }
+  .tl-row { display: flex; flex-direction: column; gap: 3px; padding: 7px 10px; border-left: 3px solid; border-radius: 0 3px 3px 0; background: #FAFAFA; }
+  .tl-num { color: #72695E; font-size: 11px; }
   .tl-words { font-size: 12px; font-weight: 600; }
-  .tl-chip { font-size: 10.5px; padding: 1px 7px; border-radius: 3px; align-self: flex-start;
-              margin-top: 1px; }
-  .tl-gap { grid-column: 1/-1; padding: 8px 10px 4px; font-size: 11px; text-transform: uppercase;
-             letter-spacing: .08em; color: #72695E; border-top: 1px dashed #D4CEC2; margin-top: 6px; }
+  .tl-gap { grid-column: 1/-1; padding: 8px 10px 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #72695E; border-top: 1px dashed #D4CEC2; margin-top: 6px; }
   .legend { margin: 0 0 .5em; font-family: 'Source Sans 3', system-ui, sans-serif; }
   .leg-item { display: flex; align-items: center; gap: 10px; font-size: 13px; padding: 3px 0; }
   .leg-sw { width: 28px; height: 16px; border-radius: 3px; display: inline-block; flex-shrink: 0; }
-  .cdoc-note { font-size: 12.5px; font-style: italic; color: #72695E; margin: .5em 0 1.2em;
-                font-family: 'Source Sans 3', system-ui, sans-serif; }
-  .cdoc { font-family: 'Source Serif 4', Georgia, serif; font-size: 14.5px; line-height: 1.85;
-          background: #fff; border: 1px solid #D4CEC2; border-radius: 5px; padding: 28px;
-          white-space: pre-wrap; word-break: break-word; }
+  .leg-unsn { width: 28px; height: 16px; border-radius: 3px; display: inline-block; flex-shrink: 0; border: 1px dashed #aaa; }
+  .cdoc-note { font-size: 12.5px; font-style: italic; color: #72695E; margin: .5em 0 1.2em; font-family: 'Source Sans 3', system-ui, sans-serif; }
+  .cdoc { font-family: 'Source Serif 4', Georgia, serif; font-size: 14.5px; line-height: 1.85; background: #fff; border: 1px solid #D4CEC2; border-radius: 5px; padding: 28px; white-space: pre-wrap; word-break: break-word; }
   .cseg { border-radius: 2px; padding: 0 1px; }
-  .psnap-block { font-family: 'Source Serif 4', Georgia, serif; font-size: 14.5px;
-                 line-height: 1.85; background: #fff; border: 1px solid #D4CEC2;
-                 border-radius: 5px; padding: 28px; white-space: pre-wrap;
-                 word-break: break-word; color: #1C1A16; }
-  .psnap-meta { font-size: 12px; color: #72695E; font-style: italic; margin: .25em 0 1em;
-                font-family: 'Source Sans 3', system-ui, sans-serif; }
-  .nsnap-block { font-family: 'Source Serif 4', Georgia, serif; font-size: 13.5px;
-                 line-height: 1.8; background: #FFFEF5; border: 1px solid #C8A84B;
-                 border-radius: 5px; padding: 20px 24px; white-space: pre-wrap;
-                 word-break: break-word; color: #1C1A16; margin: 0 0 1em; }
-  .nsnap-meta { font-size: 12px; color: #72695E; font-style: italic; margin: .25em 0 .6em;
-                font-family: 'Source Sans 3', system-ui, sans-serif; }
+  .psnap-block { font-family: 'Source Serif 4', Georgia, serif; font-size: 14.5px; line-height: 1.85; background: #fff; border: 1px solid #D4CEC2; border-radius: 5px; padding: 28px; white-space: pre-wrap; word-break: break-word; margin: 0 0 1.5em; }
+  .psnap-meta { font-size: 12px; color: #72695E; font-style: italic; margin: .25em 0 1em; font-family: 'Source Sans 3', system-ui, sans-serif; }
+  .nsnap-block { font-family: 'Source Serif 4', Georgia, serif; font-size: 13.5px; line-height: 1.8; background: #FFFEF5; border: 1px solid #C8A84B; border-radius: 5px; padding: 20px 24px; white-space: pre-wrap; word-break: break-word; margin: 0 0 1em; }
+  .nsnap-meta { font-size: 12px; color: #72695E; font-style: italic; margin: .25em 0 .6em; font-family: 'Source Sans 3', system-ui, sans-serif; }
 `;
 
 function exportCombined() {
   const title   = document.getElementById('title-input').value || 'Untitled';
+  const author  = document.getElementById('author-input').value;
   const content = document.getElementById('editor').value;
 
-  // ── Document section ─────────────────────────────
-  const docHtml = renderMd(content);
+  const bylineHtml = author ? `<p class="doc-byline">${escHtml(author)}</p>` : '';
+  const docHtml    = renderMd(content);
 
-  // ── Report section ───────────────────────────────
+  const segs    = buildColorSegmentsWithCurrent(snapshots, content);
+  const hasUnsn = segs.some(s => s.ci === -1);
+
+  let colored = '<div class="cdoc">';
+  for (const seg of segs) {
+    const esc = escHtml(seg.text).replace(/\n/g, '<br>');
+    if (seg.ci === -1) {
+      colored += `<span class="cseg">${esc}</span>`;
+    } else {
+      const c = COLORS[seg.ci];
+      colored += `<span class="cseg" style="background:${c.bg};border-bottom:2px solid ${c.line}" title="${c.name}">${esc}</span>`;
+    }
+  }
+  colored += '</div>';
+
+  const colorSnaps = new Map();
+  for (let i = 0; i < snapshots.length; i++) {
+    const ci = i % COLORS.length;
+    if (!colorSnaps.has(ci)) colorSnaps.set(ci, []);
+    colorSnaps.get(ci).push(i + 1);
+  }
+  let legend = '<div class="legend">';
+  for (const [ci, nums] of colorSnaps) {
+    const c = COLORS[ci];
+    const label = ci === 0
+      ? `Snapshot 1${nums.length > 1 ? ' + ' + nums.slice(1).map(n => '#' + n).join(', ') : ''}`
+      : `Snapshot${nums.length > 1 ? 's' : ''} ${nums.map(n => '#' + n).join(', ')}`;
+    legend += `<div class="leg-item"><span class="leg-sw" style="background:${c.bg};border:2px solid ${c.line}"></span><span><strong>${c.name}</strong> — ${label}</span></div>`;
+  }
+  if (hasUnsn) legend += `<div class="leg-item"><span class="leg-unsn"></span><span><em>Current text — not yet snapshotted</em></span></div>`;
+  legend += '</div>';
+
   let reportHtml = '';
+  const authorLine = author ? ` · ${escHtml(author)}` : '';
 
   if (snapshots.length) {
-    const sessions = computeSessions(snapshots);
-    const snapIds  = sessionIdsFor(snapshots);
-    const segs     = buildColorSegments(snapshots);
+    const sessions     = computeSessions(snapshots);
+    const snapIds      = sessionIdsFor(snapshots);
+    const totalWriting = computeTotalWritingTime();
+    const finalWords   = snapshots[snapshots.length-1].wordCount;
 
     let sessionRows = '';
-    for (const s of sessions) {
-      sessionRows += `<tr>
-        <td>${s.id}</td>
-        <td>${fmtDur(s.end - s.start)}</td>
-        <td>${s.snapCount}</td>
-        <td>${s.wordCount.toLocaleString()}</td>
-      </tr>`;
-    }
+    for (const s of sessions)
+      sessionRows += `<tr><td>${s.id}</td><td>${fmtDur(s.end - s.start)}</td><td>${s.snapCount}</td><td>${s.wordCount.toLocaleString()}</td></tr>`;
 
-    const totalWriting = sessions.reduce((sum, s) => sum + (s.end - s.start), 0);
-    const finalWords   = snapshots[snapshots.length - 1].wordCount;
-
-    let timeline = '<div class="tl">';
-    let prevSid  = 0;
+    let timeline = '<div class="tl">'; let prevSid = 0;
     for (let i = 0; i < snapshots.length; i++) {
-      const snap  = snapshots[i];
-      const sid   = snapIds[i];
-      const color = COLORS[i % COLORS.length];
+      const snap = snapshots[i], sid = snapIds[i], color = COLORS[i % COLORS.length];
       if (sid !== prevSid) {
-        if (prevSid !== 0) {
-          const gap = snap.timestamp - snapshots[i - 1].timestamp;
-          timeline += `<div class="tl-gap">↓ ${fmtDur(gap)} gap · Session ${sid} begins</div>`;
-        }
+        if (prevSid !== 0) timeline += `<div class="tl-gap">↓ ${fmtDur(snap.timestamp - snapshots[i-1].timestamp)} gap · Session ${sid} begins</div>`;
         prevSid = sid;
       }
-      timeline += `<div class="tl-row" style="border-left-color:${color.line}">
-        <span class="tl-num">Snap #${i + 1} · Session ${sid}</span>
-        <span class="tl-words">${snap.wordCount.toLocaleString()} words</span>
-        <span class="tl-chip" style="background:${color.bg};border:1px solid ${color.line}">${color.name}</span>
-      </div>`;
+      timeline += `<div class="tl-row" style="border-left-color:${color.line}"><span class="tl-num">Snap #${i+1} · Session ${sid}</span><span class="tl-words">${snap.wordCount.toLocaleString()} words</span></div>`;
     }
     timeline += '</div>';
 
-    const colorSnaps = new Map();
-    for (let i = 0; i < snapshots.length; i++) {
-      const ci = i % COLORS.length;
-      if (!colorSnaps.has(ci)) colorSnaps.set(ci, []);
-      colorSnaps.get(ci).push(i + 1);
-    }
-    let legend = '<div class="legend">';
-    for (const [ci, nums] of colorSnaps) {
-      const c = COLORS[ci];
-      const label = ci === 0
-        ? `Snapshot 1 (initial)${nums.length > 1 ? ` + ${nums.slice(1).map(n => `#${n}`).join(', ')}` : ''}`
-        : `Snapshot${nums.length > 1 ? 's' : ''} ${nums.map(n => `#${n}`).join(', ')}`;
-      legend += `<div class="leg-item">
-        <span class="leg-sw" style="background:${c.bg};border:2px solid ${c.line}"></span>
-        <span><strong>${c.name}</strong> — ${label}</span>
-      </div>`;
-    }
-    legend += '</div>';
-
-    let colored = '<div class="cdoc">';
-    for (const seg of segs) {
-      const c       = COLORS[seg.ci];
-      const escaped = escHtml(seg.text).replace(/\n/g, '<br>');
-      colored += `<span class="cseg" style="background:${c.bg};border-bottom:2px solid ${c.line}" title="${c.name}">${escaped}</span>`;
-    }
-    colored += '</div>';
-
-    // Progress snapshot
-    const psnapHtml = progressSnapshot
-      ? `<h2>Progress Snapshot</h2>
-         <p class="psnap-meta">Saved at ${fmtElapsed(progressSnapshot.elapsed)} writing time · ${countWords(progressSnapshot.text).toLocaleString()} words · plain text, no colour coding</p>
-         <div class="psnap-block">${escHtml(progressSnapshot.text)}</div>`
-      : '';
-
-    // Note snapshots
-    let nsnapHtml = '';
-    if (noteSnapshots.length) {
-      nsnapHtml = '<h2>Note Snapshots</h2>';
-      noteSnapshots.forEach((ns, i) => {
-        nsnapHtml += `<p class="nsnap-meta">Note snapshot ${i + 1}/${noteSnapshots.length} · saved at ${fmtElapsed(ns.elapsed)} writing time · ${countWords(ns.text).toLocaleString()} words</p>
-          <div class="nsnap-block">${escHtml(ns.text)}</div>`;
+    // Progress snapshots — array
+    let psnapHtml = '';
+    if (progressSnapshots.length > 0) {
+      psnapHtml = '<h2>Progress Snapshots</h2>';
+      progressSnapshots.forEach((ps, i) => {
+        psnapHtml += `<p class="psnap-meta">Snapshot ${i+1}/${progressSnapshots.length} · Saved at ${fmtElapsed(ps.elapsed)} writing time · ${countWords(ps.text).toLocaleString()} words</p><div class="psnap-block">${escHtml(ps.text)}</div>`;
       });
     }
 
-    reportHtml = `
-<div class="report-section">
-  <h1>Writing Report</h1>
-  <p class="sub">${escHtml(title)} · Generated ${fmtDateTime(Date.now())}</p>
+    // Note snapshots — per space
+    let nsnapHtml = '';
+    const spacesWithSnaps = noteSpaceState.filter(sp => sp.exists && sp.snapshots.length > 0);
+    if (spacesWithSnaps.length > 0) {
+      nsnapHtml = '<h2>Note Snapshots</h2>';
+      spacesWithSnaps.forEach(sp => {
+        if (spacesWithSnaps.length > 1) nsnapHtml += `<h3>Space ${sp.slot}</h3>`;
+        sp.snapshots.forEach((ns, i) => {
+          nsnapHtml += `<p class="nsnap-meta">Snapshot ${i+1}/${sp.snapshots.length} · ${fmtElapsed(ns.elapsed)} writing time · ${countWords(ns.text).toLocaleString()} words</p><div class="nsnap-block">${escHtml(ns.text)}</div>`;
+        });
+      });
+    }
 
+    reportHtml = `<div class="rs">
+  <h1>Writing Report</h1>
+  <p class="sub">${escHtml(title)}${authorLine} · Generated ${fmtDateTime(Date.now())}</p>
   <div class="stats">
     <div class="stat"><div class="stat-l">Sessions</div><div class="stat-v">${sessions.length}</div></div>
     <div class="stat"><div class="stat-l">Snapshots</div><div class="stat-v">${snapshots.length}</div></div>
     <div class="stat"><div class="stat-l">Writing time</div><div class="stat-v">${fmtDur(totalWriting)}</div></div>
     <div class="stat"><div class="stat-l">Final words</div><div class="stat-v">${finalWords.toLocaleString()}</div></div>
   </div>
-
   <h2>Sessions</h2>
-  <table class="report-table">
-    <thead><tr><th>#</th><th>Duration</th><th>Snapshots</th><th>Words</th></tr></thead>
-    <tbody>${sessionRows}</tbody>
-  </table>
-
-  ${psnapHtml}
-  ${nsnapHtml}
-
-  <h2>Snapshot Timeline</h2>
-  ${timeline}
-
-  <h2>Color Legend</h2>
-  ${legend}
-
+  <table class="rtable"><thead><tr><th>#</th><th>Duration</th><th>Snapshots</th><th>Words</th></tr></thead><tbody>${sessionRows}</tbody></table>
+  ${psnapHtml}${nsnapHtml}
+  <h2>Snapshot Timeline</h2>${timeline}
+  <h2>Color Legend</h2>${legend}
   <h2>Document with Writing History</h2>
-  <p class="cdoc-note">Raw markdown source. Each color shows text added within one snapshot interval (randomised 2–4 minutes per session). Colors cycle after 6 intervals.</p>
+  <p class="cdoc-note">Raw markdown source. Each color shows text added within one snapshot interval (randomised 1.5–3 min per session). Colors cycle after 6 intervals. Uncolored text has not yet been snapshotted.</p>
   ${colored}
 </div>`;
   } else {
-    reportHtml = `<div class="report-section">
-      <h1>Writing Report</h1>
-      <p class="sub">${escHtml(title)} · Generated ${fmtDateTime(Date.now())}</p>
-      <p style="color:#72695E;font-family:'Source Sans 3',sans-serif">No snapshots recorded yet — keep writing.</p>
-    </div>`;
+    reportHtml = `<div class="rs">
+  <h1>Writing Report</h1>
+  <p class="sub">${escHtml(title)}${authorLine} · Generated ${fmtDateTime(Date.now())}</p>
+  <p style="color:#72695E;font-style:italic;margin:0 0 2em">No snapshots recorded yet.</p>
+  <h2>Document with Writing History</h2>
+  <p class="cdoc-note">No snapshots taken — all text shown uncolored.</p>
+  ${legend}${colored}
+</div>`;
   }
 
-  const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${escHtml(title)}</title>
-<style>
-${BASE_STYLES}
-${REPORT_STYLES}
-</style>
-</head>
+  downloadHtml(safeFilename(title) + '.html', `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${escHtml(title)}</title><style>${BASE_STYLES}${REPORT_STYLES}</style></head>
 <body>
 <h1>${escHtml(title)}</h1>
+${bylineHtml}
 ${docHtml}
 <hr class="report-divider">
 ${reportHtml}
-</body>
-</html>`;
-
-  downloadHtml(safeFilename(title) + '.html', html);
+</body></html>`);
 }
 
 // ═══════════════════════════════════════════════════
-//  EXPORT & RESTORE — session .json
+//  SESSION FILE BACKUP / RESTORE
 // ═══════════════════════════════════════════════════
 
 async function exportBackup() {
-  const title   = document.getElementById('title-input').value || 'Untitled';
-  const jsonStr = await serializeToJson();
-  const blob    = new Blob([jsonStr], { type: 'application/json;charset=utf-8' });
-  const url     = URL.createObjectURL(blob);
-  const a       = document.createElement('a');
-  a.href     = url;
-  a.download = safeFilename(title) + ' — Chronicle.json';
+  const title = document.getElementById('title-input').value || 'Untitled';
+  const blob = new Blob([await serializeToJson()], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = url; a.download = safeFilename(title) + ' — Chronicle.json';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   showToast('Session file saved — ' + snapshots.length + ' snapshot' + (snapshots.length !== 1 ? 's' : ''));
 }
 
-function importBackup() {
-  document.getElementById('backup-file-input').click();
-}
+function importBackup() { document.getElementById('backup-file-input').click(); }
 
 async function handleBackupFile(file) {
   if (!file) return;
@@ -1854,89 +1988,70 @@ async function handleBackupFile(file) {
   reader.onload = async e => {
     const raw = e.target.result;
     let data;
-
     try {
       const parsed = JSON.parse(raw);
+      if (parsed.v === 4) { data = await deserializeFromJson(raw); }
+      else { showToast('Not a valid Chronicle v4 session file'); return; }
+    } catch (_) { showToast('Could not read file — invalid JSON'); return; }
 
-      if (parsed.v === 3 || parsed.v === 2) {
-        data = await deserializeFromJson(raw);
-      } else if (parsed._chronicle_backup) {
-        if (!Array.isArray(parsed.snapshots)) {
-          showToast('Not a valid Chronicle backup file'); return;
-        }
-        data = {
-          title:     parsed.title || '',
-          content:   parsed.content || '',
-          snapshots: parsed.snapshots.map(s => ({
-            timestamp: s.timestamp,
-            wordCount: s.wordCount,
-            content:   s.content,
-            sig:       s.sig || null,
-          })),
-          _checksum: null,
-        };
-      } else {
-        showToast('Not a valid Chronicle session file'); return;
-      }
-    } catch (_) {
-      showToast('Could not read file — invalid JSON'); return;
+    // Verifier check
+    const vCheck = checkVerifierForLoad(data.vid);
+    if (!vCheck.ok) {
+      showVerifierError(
+        '<strong>Session mismatch.</strong> This file belongs to a different Chronicle session than your current cache.<br>' +
+        'To load it safely: (1) Save your current session via <em>File → Save Session File</em>, ' +
+        '(2) <em>File → Clear &amp; Reset</em>, then (3) restore this file again.'
+      );
+      return;
+    }
+    if (vCheck.ok === 'warn') {
+      if (!confirm('This file has no session ID (older format). Load it anyway?')) return;
     }
 
     const { tampered, unsigned } = await verifyAllSnapshots(data.snapshots);
-    if (tampered > 0) {
-      const proceed = confirm(
-        `⚠ Integrity check failed\n\n` +
-        `${tampered} of ${data.snapshots.length} snapshot${data.snapshots.length !== 1 ? 's' : ''} ` +
-        `appear to have been modified.\n\nTimestamps or word counts may not be accurate.\n\nLoad anyway?`
-      );
-      if (!proceed) return;
-    }
+    if (tampered > 0 && !confirm(`⚠ Integrity check failed\n\n${tampered} of ${data.snapshots.length} snapshot${data.snapshots.length !== 1 ? 's' : ''} appear modified.\n\nLoad anyway?`)) return;
 
-    const incoming    = data.snapshots.length;
     const hasExisting = snapshots.length > 0;
-    let   mode;
+    let mode = 'replace';
+    if (hasExisting) {
+      // Word count check for merge
+      const localWC  = snapshots.length ? snapshots[snapshots.length - 1].wordCount : 0;
+      const fileWC   = data.snapshots.length ? data.snapshots[data.snapshots.length - 1].wordCount : 0;
+      const diffPct  = wordCountDiffPct(localWC, fileWC);
 
-    if (!hasExisting) {
-      mode = 'replace';
-    } else {
-      const choice = confirm(
-        `Backup contains ${incoming} snapshot${incoming !== 1 ? 's' : ''} ` +
-        `from "${data.title || 'Untitled'}".\n\n` +
-        `OK → Merge into current session (keeps your existing snapshots)\n` +
-        `Cancel → Replace everything with the backup`
-      );
-      mode = choice ? 'merge' : 'replace';
+      const wantMerge = confirm(`Backup: ${data.snapshots.length} snapshot${data.snapshots.length !== 1 ? 's' : ''} from "${data.title || 'Untitled'}".\n\nOK → Merge   Cancel → Replace`);
+      if (wantMerge) {
+        if (diffPct > 0.05) {
+          alert(`⚠ Merge denied: word counts differ by ${Math.round(diffPct * 100)}% (local: ${localWC}, file: ${fileWC}).\n\nThe documents have diverged too much to merge safely. Use Replace instead.`);
+          return;
+        }
+        if (diffPct > 0) showToast(`Note: word counts differ by ${Math.round(diffPct * 100)}% — merging`);
+        mode = 'merge';
+      }
     }
 
-    const editor     = document.getElementById('editor');
-    const titleInput = document.getElementById('title-input');
-
+    const editor = document.getElementById('editor'), titleInput = document.getElementById('title-input');
     if (mode === 'replace') {
-      snapshots    = data.snapshots;
-      editor.value = data.content || (snapshots.length ? snapshots[snapshots.length - 1].content : '');
+      snapshots = data.snapshots;
+      editor.value = data.content || (snapshots.length ? snapshots[snapshots.length-1].content : '');
       if (data.title) { titleInput.value = data.title; document.title = data.title + ' — Chronicle'; }
+      if (Array.isArray(data.progressSnapshots)) { progressSnapshots = data.progressSnapshots.slice(0, MAX_PROGRESS_SNAPS); updateProgressButton(); }
+      if (Array.isArray(data.spaces)) {
+        noteSpaceState = data.spaces.map(sp => ({ ...sp, snapshots: [...(sp.snapshots || [])] }));
+        while (noteSpaceState.length < 3) noteSpaceState.push({ slot: noteSpaceState.length + 1, exists: false, open: false, content: '', snapshots: [] });
+        persistNoteSpaceState();
+        renderNotesUI();
+      }
     } else {
-      const merged = [...snapshots, ...data.snapshots];
-      merged.sort((a, b) => a.timestamp - b.timestamp);
-      snapshots = merged.filter((s, i) => i === 0 || s.timestamp !== merged[i - 1].timestamp);
+      const merged = [...snapshots, ...data.snapshots].sort((a,b) => a.timestamp - b.timestamp);
+      snapshots = merged.filter((s, i) => i === 0 || s.timestamp !== merged[i-1].timestamp);
     }
-
     await resignChain(snapshots);
-
-    if (snapshots.length) {
-      lastSnapContent = snapshots[snapshots.length - 1].content;
-      lastSnapTime    = snapshots[snapshots.length - 1].timestamp;
-    }
-
-    saveContent(editor.value);
-    saveTitle(titleInput.value);
-    saveSnapshots();
-    updateStatusBar();
-    scheduleNextSnapshot();
-
-    const resultCount = snapshots.length;
-    let msg = (mode === 'replace' ? 'Restored' : 'Merged') +
-      ' — ' + resultCount + ' snapshot' + (resultCount !== 1 ? 's' : '') + ' total';
+    if (snapshots.length) lastSnapContent = snapshots[snapshots.length-1].content;
+    saveContent(editor.value); saveTitle(titleInput.value); saveSnapshots();
+    saveProgressSnapshots();
+    updateStatusBar(); updateProgressButton(); scheduleNextSnapshot();
+    let msg = (mode === 'replace' ? 'Restored' : 'Merged') + ' — ' + snapshots.length + ' snapshot' + (snapshots.length !== 1 ? 's' : '') + ' total';
     if (unsigned > 0 && tampered === 0) msg += ` (${unsigned} legacy unsigned)`;
     showToast(msg);
   };
@@ -1947,113 +2062,71 @@ async function handleBackupFile(file) {
 //  UI UPDATES
 // ═══════════════════════════════════════════════════
 
-function updateCountdownDisplay() {
-  const el = document.getElementById('status-countdown');
-  if (!el) return;
-  if (!nextSnapTime) { el.textContent = ''; return; }
-  const rem = Math.max(0, nextSnapTime - Date.now());
-  const m   = Math.floor(rem / 60000);
-  const s   = Math.floor((rem % 60000) / 1000);
-  el.textContent = `snap ${m}:${String(s).padStart(2, '0')}`;
-}
-
 function updateStatusBar() {
-  const editor = document.getElementById('editor');
-  const words  = countWords(editor.value);
-
+  const words = countWords(document.getElementById('editor').value);
   document.getElementById('status-session').textContent = `Session ${currentSessionId()}`;
-  document.getElementById('status-words').textContent   =
-    `${words.toLocaleString()} word${words !== 1 ? 's' : ''}`;
+  document.getElementById('status-words').textContent = `${words.toLocaleString()} word${words !== 1 ? 's' : ''}`;
+
+  const wtEl = document.getElementById('status-writing-time');
+  if (wtEl) { const wt = computeTotalWritingTime(); wtEl.textContent = wt > 0 ? fmtDur(wt) + ' writing' : ''; }
 
   const saveEl = document.getElementById('status-save');
-  if (lastSaveTime) {
-    saveEl.textContent = 'Saved ' + fmtAgo(lastSaveTime);
-  } else {
-    saveEl.textContent = '';
-  }
-
-  updateCountdownDisplay();
+  if (saveEl) saveEl.textContent = lastSaveTime ? 'Saved ' + fmtAgo(lastSaveTime) : '';
 }
 
 function showToast(msg) {
   const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.remove('hidden');
+  t.textContent = msg; t.classList.remove('hidden');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.classList.add('hidden'), 2500);
 }
 
 function blinkSnap() {
   const dot = document.getElementById('status-snap-blink');
-  dot.classList.add('active');
-  setTimeout(() => dot.classList.remove('active'), 1800);
+  dot.classList.add('active'); setTimeout(() => dot.classList.remove('active'), 1800);
 }
 
 // ═══════════════════════════════════════════════════
-//  EDITOR LOGIC
+//  EDITOR
 // ═══════════════════════════════════════════════════
 
 function onInput() {
-  const editor = document.getElementById('editor');
-  const text   = editor.value;
-
+  trackWritingSession();
+  const text = document.getElementById('editor').value;
   clearTimeout(autosaveTimer);
-  autosaveTimer = setTimeout(() => {
-    saveContent(text);
-    lastSaveTime = new Date();
-    updateStatusBar();
-  }, DEBOUNCE_MS);
-
+  autosaveTimer = setTimeout(() => { saveContent(text); lastSaveTime = new Date(); updateStatusBar(); }, DEBOUNCE_MS);
   updateStatusBar();
-
-  if (currentView === 'preview') {
-    document.getElementById('preview-content').innerHTML = renderMd(text);
-  }
+  if (currentView === 'preview') document.getElementById('preview-content').innerHTML = renderMd(text);
 }
 
 async function doSaveSnapshot(silent) {
   const text = document.getElementById('editor').value;
-  saveContent(text);
-  lastSaveTime = new Date();
-  if (text.trim() && text !== lastSnapContent) {
-    await takeSnapshot(text, silent);
-    scheduleNextSnapshot();
-  }
+  saveContent(text); lastSaveTime = new Date();
+  if (text.trim() && text !== lastSnapContent) { await takeSnapshot(text, silent); scheduleNextSnapshot(); }
   updateStatusBar();
 }
 
 function insertFootnote() {
-  const el   = document.getElementById('editor');
-  const text = el.value;
-  const pos  = el.selectionStart;
-
+  const el = document.getElementById('editor'), text = el.value, pos = el.selectionStart;
   const existing = [...text.matchAll(/\[\^(\d+)\]/g)].map(m => parseInt(m[1]));
-  const n        = existing.length ? Math.max(...existing) + 1 : 1;
-  const ref      = `[^${n}]`;
-  const withRef  = text.slice(0, pos) + ref + text.slice(pos);
-  const withDef  = withRef + `\n\n[^${n}]: `;
-  el.value       = withDef;
-  el.selectionStart = el.selectionEnd = withDef.length;
-  el.focus();
-  onInput();
+  const n = existing.length ? Math.max(...existing) + 1 : 1;
+  const withDef = text.slice(0, pos) + `[^${n}]` + text.slice(pos) + `\n\n[^${n}]: `;
+  el.value = withDef; el.selectionStart = el.selectionEnd = withDef.length;
+  el.focus(); onInput();
 }
 
 function setView(v) {
   currentView = v;
-  const ep = document.getElementById('editor-pane');
-  const pp = document.getElementById('preview-pane');
-  const bw = document.getElementById('btn-write');
-  const bp = document.getElementById('btn-preview');
-
+  const ep = document.getElementById('editor-pane'), pp = document.getElementById('preview-pane');
+  const bw = document.getElementById('btn-write'), bp = document.getElementById('btn-preview');
   if (v === 'write') {
     ep.classList.remove('hidden'); pp.classList.add('hidden');
-    bw.classList.add('active');   bp.classList.remove('active');
+    bw.classList.add('active'); bp.classList.remove('active');
     document.getElementById('editor').focus();
   } else {
-    ep.classList.add('hidden');    pp.classList.remove('hidden');
+    ep.classList.add('hidden'); pp.classList.remove('hidden');
     bw.classList.remove('active'); bp.classList.add('active');
-    document.getElementById('preview-content').innerHTML =
-      renderMd(document.getElementById('editor').value);
+    document.getElementById('preview-content').innerHTML = renderMd(document.getElementById('editor').value);
   }
 }
 
@@ -2064,141 +2137,108 @@ function setView(v) {
 function init() {
   marked.setOptions({ gfm: true, breaks: false });
 
-  const editor     = document.getElementById('editor');
-  const titleInput = document.getElementById('title-input');
-  const notesEl   = document.getElementById('notes-editor');
+  const editor      = document.getElementById('editor');
+  const titleInput  = document.getElementById('title-input');
+  const authorInput = document.getElementById('author-input');
 
-  // ── Restore from localStorage ──────────────────
+  // ── Restore note space state ────────────────────
+  const savedSpaceState = storageGet(K.SPACE_STATE);
+  if (savedSpaceState) {
+    try {
+      const parsed = JSON.parse(savedSpaceState);
+      noteSpaceState = [1, 2, 3].map((slot, i) => {
+        const saved = parsed[i] || { exists: false, open: false };
+        let content = '';
+        const cr = storageGet(noteContentKey(slot));
+        if (cr) { try { content = LZString.decompressFromUTF16(cr) || cr; } catch(_) { content = cr; } }
+        let snaps = [];
+        const sr = storageGet(noteSnapsKey(slot));
+        if (sr) { try { const p = JSON.parse(sr); if (Array.isArray(p)) snaps = p.slice(0, MAX_NOTE_SNAPS); } catch(_) {} }
+        return { slot, exists: !!saved.exists, open: !!saved.open, content, snapshots: snaps };
+      });
+    } catch(_) {
+      noteSpaceState[0].exists = true; noteSpaceState[0].open = true;
+    }
+  } else {
+    noteSpaceState[0].exists = true; noteSpaceState[0].open = true;
+  }
+
+  // ── Restore progress snapshots ──────────────────
+  const savedProgress = storageGet(K.PROGRESS_SNAPS);
+  if (savedProgress) {
+    try { const p = JSON.parse(savedProgress); if (Array.isArray(p)) progressSnapshots = p.slice(0, MAX_PROGRESS_SNAPS); } catch(_) {}
+  }
+
+  // ── Restore verifier ────────────────────────────
+  sessionVerifier = storageGet(K.VERIFIER); // may be null
+
+  // ── Restore main content ────────────────────────
   const savedContent   = loadContent();
   const savedTitle     = loadTitle();
+  const savedAuthor    = loadAuthor();
   const savedSnapshots = loadSnapshots();
-  const savedNotes     = loadNotes();
-  const savedNoteSnaps = loadNoteSnapshots();
-  const savedProgress  = loadProgressSnapshot();
 
-  if (savedContent)           editor.value     = savedContent;
-  if (savedTitle)             titleInput.value  = savedTitle;
-  if (savedNotes && notesEl)  notesEl.value     = savedNotes;
-  if (savedProgress)        { progressSnapshot  = savedProgress; }
-  if (savedNoteSnaps.length){ noteSnapshots     = savedNoteSnaps; }
+  if (savedContent)   editor.value      = savedContent;
+  if (savedTitle)     titleInput.value  = savedTitle;
+  if (savedAuthor)    authorInput.value = savedAuthor;
 
-  // Restore font size
-  const savedFontSize = parseInt(storageGet(K.FONT_SIZE));
-  if (!isNaN(savedFontSize) && savedFontSize >= 12 && savedFontSize <= 26)
-    fontSize = savedFontSize;
+  const sf = parseInt(storageGet(K.FONT_SIZE));
+  if (!isNaN(sf) && sf >= 12 && sf <= 26) fontSize = sf;
   applyFontSize();
 
-  // Restore split width
-  const savedSplitPct = parseFloat(storageGet(K.SPLIT_PCT));
-  if (!isNaN(savedSplitPct) && savedSplitPct >= 25 && savedSplitPct <= 75)
-    splitNotesWidthPct = savedSplitPct;
+  const sp = parseFloat(storageGet(K.SPLIT_PCT));
+  if (!isNaN(sp) && sp >= 25 && sp <= 75) splitNotesWidthPct = sp;
 
   if (savedSnapshots.length) {
-    snapshots       = savedSnapshots;
-    lastSnapContent = savedSnapshots[savedSnapshots.length - 1].content;
-    lastSnapTime    = savedSnapshots[savedSnapshots.length - 1].timestamp;
-
+    snapshots = savedSnapshots;
+    lastSnapContent = savedSnapshots[savedSnapshots.length-1].content;
     const banner = document.getElementById('restored-banner');
     banner.textContent = `Restored — ${snapshots.length} snapshot${snapshots.length !== 1 ? 's' : ''} from previous session`;
     banner.classList.remove('hidden');
-    setTimeout(() => {
-      banner.style.opacity = '0';
-      setTimeout(() => banner.classList.add('hidden'), 600);
-    }, 4000);
-
-    verifyAllSnapshots(snapshots).then(({ tampered }) => {
-      if (tampered > 0)
-        showToast(`⚠ ${tampered} snapshot${tampered !== 1 ? 's' : ''} failed integrity check`);
-    });
+    setTimeout(() => { banner.style.opacity = '0'; setTimeout(() => banner.classList.add('hidden'), 600); }, 4000);
+    verifyAllSnapshots(snapshots).then(({ tampered }) => { if (tampered > 0) showToast(`⚠ ${tampered} snapshot${tampered !== 1 ? 's' : ''} failed integrity check`); });
   }
 
   lastSaveTime = savedContent ? new Date() : null;
   if (savedTitle) document.title = savedTitle + ' — Chronicle';
-  updateStatusBar();
-  updateProgressButton();
-  updateNoteSnapButton();
-  updateNotesWordCount();
 
-  // ── Snapshot scheduling ────────────────────────
+  // ── Initial UI render ───────────────────────────
+  updateStatusBar(); updateProgressButton();
+  renderNotesUI();
   scheduleNextSnapshot();
 
-  // ── Countdown + relative save time — every second ─
-  countdownTimerId = setInterval(() => {
-    updateCountdownDisplay();
-    if (lastSaveTime) {
-      const saveEl = document.getElementById('status-save');
-      if (saveEl) saveEl.textContent = 'Saved ' + fmtAgo(lastSaveTime);
-    }
+  // 1-second tick
+  setInterval(() => {
+    const saveEl = document.getElementById('status-save');
+    if (saveEl && lastSaveTime) saveEl.textContent = 'Saved ' + fmtAgo(lastSaveTime);
+    const wtEl = document.getElementById('status-writing-time');
+    if (wtEl) { const wt = computeTotalWritingTime(); wtEl.textContent = wt > 0 ? fmtDur(wt) + ' writing' : ''; }
   }, 1000);
 
-  // ── Split pane resize ──────────────────────────
   initSplitResize();
 
-  // ── Paste & drop blocking ──────────────────────
-  editor.addEventListener('paste', e => {
-    e.preventDefault();
-    showToast('Pasting is disabled in Chronicle');
-  });
+  // ── Editor event listeners ──────────────────────
+  editor.addEventListener('paste', e => { e.preventDefault(); showToast('Pasting is disabled in Chronicle'); });
   editor.addEventListener('dragstart', () => { _internalDrag = true; });
-  editor.addEventListener('dragend',   () => { _internalDrag = false; });
-  editor.addEventListener('drop', e => {
-    if (!_internalDrag) {
-      e.preventDefault();
-      showToast('External drop is disabled in Chronicle');
-    }
-  });
+  editor.addEventListener('dragend', () => { _internalDrag = false; });
+  editor.addEventListener('drop', e => { if (!_internalDrag) { e.preventDefault(); showToast('External drop is disabled in Chronicle'); } });
 
-  // ── Editor keydown ─────────────────────────────
   editor.addEventListener('keydown', e => {
-    if (e.key === 'Tab') {
-      e.preventDefault();
-      const s = editor.selectionStart, en = editor.selectionEnd;
-      editor.value = editor.value.slice(0, s) + '\t' + editor.value.slice(en);
-      editor.selectionStart = editor.selectionEnd = s + 1;
-      onInput();
-    }
+    if (e.key === 'Tab') { e.preventDefault(); const s = editor.selectionStart, en = editor.selectionEnd; editor.value = editor.value.slice(0, s) + '\t' + editor.value.slice(en); editor.selectionStart = editor.selectionEnd = s + 1; onInput(); }
   });
 
-  // ── Global keydown ─────────────────────────────
   document.addEventListener('keydown', e => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-      e.preventDefault();
-      doSaveSnapshot(false);
-    }
-    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'F') {
-      e.preventDefault();
-      insertFootnote();
-    }
-    if (e.key === 'Escape') {
-      document.getElementById('export-menu').classList.add('hidden');
-      document.getElementById('help-overlay').classList.add('hidden');
-    }
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); doSaveSnapshot(false); }
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'F') { e.preventDefault(); insertFootnote(); }
+    if (e.key === 'Escape') { document.getElementById('export-menu').classList.add('hidden'); document.getElementById('help-overlay').classList.add('hidden'); closeNoteSpaceMenu(); }
   });
 
   editor.addEventListener('input', onInput);
-
-  // ── Notes editor ───────────────────────────────
-  if (notesEl) {
-    notesEl.addEventListener('input', () => {
-      updateNotesWordCount();
-      clearTimeout(notesAutosaveTimer);
-      notesAutosaveTimer = setTimeout(() => {
-        saveNotes(notesEl.value);
-      }, DEBOUNCE_MS);
-    });
-  }
-
-  // ── Belt-and-suspenders persistence ───────────
-  editor.addEventListener('blur', () => {
-    saveContent(editor.value);
-    lastSaveTime = new Date();
-    updateStatusBar();
-  });
+  editor.addEventListener('blur', () => { saveContent(editor.value); lastSaveTime = new Date(); updateStatusBar(); });
 
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
-      saveContent(editor.value);
-      lastSaveTime = new Date();
+      saveContent(editor.value); lastSaveTime = new Date();
       const text = editor.value;
       if (text.trim() && text !== lastSnapContent) takeSnapshot(text, true);
     }
@@ -2208,97 +2248,69 @@ function init() {
     const text = editor.value;
     storageSet(K.CONTENT, LZString.compressToUTF16(text));
     if (text.trim() && text !== lastSnapContent) {
-      const snap = { timestamp: Date.now(), content: text, wordCount: countWords(text), sig: null };
-      snapshots.push(snap);
-      try { storageSet(K.SNAPSHOTS, LZString.compressToUTF16(JSON.stringify(snapshots))); } catch (_) {}
+      snapshots.push({ timestamp: Date.now(), content: text, wordCount: countWords(text), sig: null });
+      try { storageSet(K.SNAPSHOTS, LZString.compressToUTF16(JSON.stringify(snapshots))); } catch(_) {}
     }
   });
 
-  // ── Title ──────────────────────────────────────
-  titleInput.addEventListener('input', () => {
-    saveTitle(titleInput.value);
-    document.title = (titleInput.value || 'Untitled') + ' — Chronicle';
-  });
+  titleInput.addEventListener('input', () => { saveTitle(titleInput.value); document.title = (titleInput.value || 'Untitled') + ' — Chronicle'; });
+  authorInput.addEventListener('input', () => saveAuthor(authorInput.value));
 
-  // ── View toggle ────────────────────────────────
+  // ── Toolbar buttons ─────────────────────────────
   document.getElementById('btn-write').addEventListener('click', () => setView('write'));
   document.getElementById('btn-preview').addEventListener('click', () => setView('preview'));
   document.getElementById('btn-notes').addEventListener('click', toggleNotes);
 
-  // ── Font size buttons ──────────────────────────
-  document.getElementById('btn-sz-down').addEventListener('click', () => {
-    fontSize = Math.max(12, fontSize - 1);
-    applyFontSize();
-    showToast(`Font size ${fontSize}px`);
-  });
-  document.getElementById('btn-sz-up').addEventListener('click', () => {
-    fontSize = Math.min(26, fontSize + 1);
-    applyFontSize();
-    showToast(`Font size ${fontSize}px`);
-  });
+  document.getElementById('btn-sz-down').addEventListener('click', () => { fontSize = Math.max(12, fontSize - 1); applyFontSize(); showToast(`Font size ${fontSize}px`); });
+  document.getElementById('btn-sz-up').addEventListener('click', () => { fontSize = Math.min(26, fontSize + 1); applyFontSize(); showToast(`Font size ${fontSize}px`); });
 
-  // ── Toolbar buttons ────────────────────────────
   document.getElementById('btn-fn').addEventListener('click', insertFootnote);
   document.getElementById('btn-progress-snap').addEventListener('click', takeProgressSnapshot);
-  document.getElementById('btn-note-snap').addEventListener('click', takeNoteSnapshot);
-  document.getElementById('btn-help').addEventListener('click', () =>
-    document.getElementById('help-overlay').classList.remove('hidden'));
-  document.getElementById('help-close').addEventListener('click', () =>
-    document.getElementById('help-overlay').classList.add('hidden'));
-  document.getElementById('help-overlay').addEventListener('click', e => {
-    if (e.target === document.getElementById('help-overlay'))
-      document.getElementById('help-overlay').classList.add('hidden');
-  });
 
-  // ── Export dropdown ────────────────────────────
-  const exportToggle = document.getElementById('btn-export-toggle');
-  const exportMenu   = document.getElementById('export-menu');
+  document.getElementById('btn-help').addEventListener('click', () => document.getElementById('help-overlay').classList.remove('hidden'));
+  document.getElementById('help-close').addEventListener('click', () => document.getElementById('help-overlay').classList.add('hidden'));
+  document.getElementById('help-overlay').addEventListener('click', e => { if (e.target === document.getElementById('help-overlay')) document.getElementById('help-overlay').classList.add('hidden'); });
 
-  exportToggle.addEventListener('click', e => {
-    e.stopPropagation();
-    exportMenu.classList.toggle('hidden');
-  });
+  const exportToggle = document.getElementById('btn-export-toggle'), exportMenu = document.getElementById('export-menu');
+  exportToggle.addEventListener('click', e => { e.stopPropagation(); exportMenu.classList.toggle('hidden'); });
   document.addEventListener('click', () => exportMenu.classList.add('hidden'));
 
-  document.getElementById('btn-export-combined').addEventListener('click', () => {
-    exportMenu.classList.add('hidden'); exportCombined();
-  });
-  document.getElementById('btn-export-backup').addEventListener('click', () => {
-    exportMenu.classList.add('hidden'); exportBackup();
-  });
-  document.getElementById('btn-import-backup').addEventListener('click', () => {
-    exportMenu.classList.add('hidden'); importBackup();
-  });
-  document.getElementById('backup-file-input').addEventListener('change', e => {
-    handleBackupFile(e.target.files[0]);
-    e.target.value = '';
-  });
+  document.getElementById('btn-export-combined').addEventListener('click', () => { exportMenu.classList.add('hidden'); exportCombined(); });
+  document.getElementById('btn-export-backup').addEventListener('click', () => { exportMenu.classList.add('hidden'); exportBackup(); });
+  document.getElementById('btn-import-backup').addEventListener('click', () => { exportMenu.classList.add('hidden'); importBackup(); });
+  document.getElementById('backup-file-input').addEventListener('change', e => { handleBackupFile(e.target.files[0]); e.target.value = ''; });
+
   document.getElementById('btn-clear').addEventListener('click', () => {
     exportMenu.classList.add('hidden');
-    if (confirm('Permanently delete all content and snapshot history?\n\nThis cannot be undone.')) {
-      [K.CONTENT, K.TITLE, K.SNAPSHOTS, K.PROGRESS_SNAP, K.NOTES, K.NOTE_SNAPS].forEach(k => {
-        try { localStorage.removeItem(k); } catch (_) {}
-      });
+    if (confirm('Permanently delete all content, snapshots, and note spaces?\n\nThis cannot be undone.')) {
+      [K.CONTENT, K.TITLE, K.AUTHOR, K.SNAPSHOTS, K.PROGRESS_SNAPS,
+       K.NOTES_1, K.NOTES_2, K.NOTES_3,
+       K.NSNAPS_1, K.NSNAPS_2, K.NSNAPS_3,
+       K.SPACE_STATE, K.VERIFIER
+      ].forEach(k => { try { localStorage.removeItem(k); } catch(_) {} });
+
       clearTimeout(snapshotTimerId);
-      snapshots = []; lastSnapContent = ''; lastSnapTime = Date.now(); lastSaveTime = null;
-      progressSnapshot = null; noteSnapshots = [];
-      editor.value = ''; titleInput.value = '';
-      if (notesEl) notesEl.value = '';
+      snapshots = []; lastSnapContent = ''; lastSaveTime = null;
+      progressSnapshots = []; sessionVerifier = null;
+      sessionCurrentStart = null; sessionCurrentEnd = null;
+
+      noteSpaceState = [
+        { slot: 1, exists: true,  open: true,  content: '', snapshots: [] },
+        { slot: 2, exists: false, open: false, content: '', snapshots: [] },
+        { slot: 3, exists: false, open: false, content: '', snapshots: [] },
+      ];
+
+      editor.value = ''; titleInput.value = ''; authorInput.value = '';
       document.title = 'Chronicle';
-      updateStatusBar();
-      updateProgressButton();
-      updateNoteSnapButton();
-      updateNotesWordCount();
-      persistToJson();
-      showToast('Reset — fresh document');
-      scheduleNextSnapshot();
+      fsHandle = null; updateFsIndicator();
+      updateStatusBar(); updateProgressButton();
+      renderNotesUI(); persistToJson();
+      showToast('Reset — fresh document'); scheduleNextSnapshot();
     }
   });
 
-  // ── File System API ────────────────────────────
   updateFsIndicator();
   document.getElementById('fs-indicator').addEventListener('click', linkFile);
-
   editor.focus();
 }
 
