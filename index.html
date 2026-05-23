@@ -49,7 +49,6 @@ html, body {
   height: 100dvh;
 }
 
-/* toolbar */
 #toolbar {
   height: var(--toolbar-h);
   background: var(--bg);
@@ -97,6 +96,52 @@ html, body {
 #status-snap-blink.active { opacity: 1; }
 #status-save { font-style: italic; }
 
+/* Worker connectivity indicator */
+.worker-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #8A8278;
+  white-space: nowrap;
+  cursor: default;
+}
+.worker-indicator::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--line);
+  flex-shrink: 0;
+}
+.worker-indicator.connected::before { background: #3A8A50; }
+.worker-indicator.warning { color: #B8922A; }
+.worker-indicator.warning::before { background: #B8922A; }
+.worker-indicator.blocked { color: var(--danger); }
+.worker-indicator.blocked::before { background: var(--danger); }
+
+/* Persistent warning banner */
+#persistent-warning {
+  position: fixed;
+  top: calc(var(--toolbar-h) * 2);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #7A5510;
+  color: #FFF8E6;
+  padding: 10px 20px;
+  border-radius: 0 0 7px 7px;
+  font-size: 12.5px;
+  z-index: 600;
+  max-width: 620px;
+  width: 92%;
+  line-height: 1.6;
+  text-align: center;
+  font-family: var(--font-ui);
+}
+#persistent-warning.hidden { display: none; }
+#persistent-warning.non-dismissible { background: #7A1A1A; color: #FFF5F5; }
+
 #fs-indicator {
   display: inline-flex;
   align-items: center;
@@ -120,7 +165,6 @@ html, body {
 #fs-indicator.linked .fs-dot { background: #3A8A50; }
 #fs-indicator.linked { color: #3A8A50; }
 
-/* inputs */
 #title-input {
   flex: 1;
   min-width: 0;
@@ -155,7 +199,6 @@ html, body {
 #author-input::placeholder { color: #BDB7AF; }
 #author-input:focus { background: var(--bg); border-color: var(--line); color: var(--text); }
 
-/* unified button */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -190,7 +233,6 @@ html, body {
 .font-size-ctrl { display: flex; gap: 2px; flex-shrink: 0; }
 .toolbar-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 
-/* dropdown */
 .dropdown { position: relative; }
 .dropdown-menu {
   position: absolute;
@@ -225,7 +267,6 @@ html, body {
 .dropdown-menu button:hover { background: var(--tint); }
 .dropdown-menu button.danger { color: var(--danger); }
 
-/* main layout */
 #main { flex: 1; overflow: hidden; display: flex; position: relative; }
 #writing-area { flex: 1; min-width: 0; overflow: hidden; display: flex; flex-direction: column; }
 
@@ -301,7 +342,6 @@ html, body {
 #split-handle:hover, #split-handle.dragging { background: var(--accent); }
 #split-handle.hidden { display: none; }
 
-/* ── Notes pane ─────────────────────────────────── */
 #notes-pane {
   display: flex;
   flex-direction: column;
@@ -313,7 +353,6 @@ html, body {
 }
 #notes-pane.hidden { display: none; }
 
-/* Tab bar */
 #notes-tabbar {
   display: flex;
   align-items: stretch;
@@ -362,12 +401,10 @@ html, body {
   display: none;
 }
 
-/* Snap button inside tab — inherits .btn but overridden for compactness */
 .note-snap-btn {
   flex-shrink: 0;
 }
 
-/* Icon-style close / clear buttons inside tab */
 .note-tab-btn {
   display: inline-flex;
   align-items: center;
@@ -394,7 +431,6 @@ html, body {
   margin-left: 8px;
 }
 
-/* Note space columns */
 #notes-spaces-row {
   flex: 1;
   display: flex;
@@ -441,7 +477,6 @@ html, body {
   font-family: var(--font-ui);
 }
 
-/* Space action menu (fixed dropdown) */
 #note-space-menu {
   position: fixed;
   background: var(--bg);
@@ -574,6 +609,8 @@ body.split-dragging * { cursor: col-resize !important; }
         <span class="fs-dot"></span>
         <span id="fs-label">Link file</span>
       </span>
+      <span class="ts-sep"></span>
+      <span id="status-worker" class="worker-indicator" title="Checking signing service…"></span>
     </div>
     <input id="title-input" type="text" placeholder="Untitled" autocomplete="off">
     <input id="author-input" type="text" placeholder="Author" autocomplete="off">
@@ -607,7 +644,7 @@ body.split-dragging * { cursor: col-resize !important; }
         <span class="esub-label">Write</span>
         <span class="esub-spacer"></span>
         <button class="btn" id="btn-fn" title="Insert footnote (Ctrl+Shift+F)">Fn↑</button>
-        <button class="btn" id="btn-progress-snap" title="Save a progress snapshot (max 5)">◎ Progress <span id="progress-snap-count" style="opacity:.7">(0/5)</span></button>
+        <button class="btn" id="btn-progress-snap" title="Save a progress snapshot (max 5)">Snap <span id="progress-snap-count" style="opacity:.7">(0/5)</span></button>
       </div>
       <div id="editor-pane">
         <textarea id="editor" spellcheck="true" placeholder="Begin writing…&#10;&#10;Markdown + footnotes [^1]. Ctrl+S snapshot. Auto-snap every 1.5–3 min."></textarea>
@@ -618,14 +655,14 @@ body.split-dragging * { cursor: col-resize !important; }
     </div>
     <div id="split-handle" class="hidden"></div>
     <div id="notes-pane" class="hidden">
-      <div id="notes-tabbar"><!-- rendered by JS --></div>
-      <div id="notes-spaces-row"><!-- rendered by JS --></div>
+      <div id="notes-tabbar"></div>
+      <div id="notes-spaces-row"></div>
     </div>
   </main>
 </div>
 
-<!-- Fixed overlays -->
 <div id="verifier-error" class="hidden"></div>
+<div id="persistent-warning" class="hidden"></div>
 <div id="toast" class="hidden"></div>
 <div id="restored-banner" class="hidden"></div>
 <div id="note-space-menu" class="hidden"></div>
@@ -633,9 +670,9 @@ body.split-dragging * { cursor: col-resize !important; }
 
 <div id="help-overlay" class="hidden">
   <div id="help-box">
-    <h2>Chronicle</h2>
+    <h2>Editor</h2>
     <p><strong>Markdown</strong> • Footnotes: <code>[^1]</code> / <code>[^1]: text</code> • <kbd>Ctrl+Shift+F</kbd> inserts footnote.</p>
-    <p><strong>Snapshots:</strong> auto every 1.5–3 min, <kbd>Ctrl+S</kbd> manual. Up to 5 progress snapshots of your essay.</p>
+    <p><strong>Snapshots:</strong> auto every 1.5–3 min, <kbd>Ctrl+S</kbd> manual. Signed by the verification service every 4 snapshots. Up to 5 progress snapshots of your essay.</p>
     <p><strong>Notes pane:</strong> up to 3 separate note spaces, each with up to 5 snapshots. Paste and external drop are disabled.</p>
     <p><strong>Session identity:</strong> each session file has a unique verifier ID. Linking a file from a different session is blocked to prevent data loss.</p>
     <p><strong>Link session file:</strong> persistent JSON on disk (File System Access API, Chrome/Edge only).</p>
@@ -650,19 +687,24 @@ body.split-dragging * { cursor: col-resize !important; }
 <script>
 'use strict';
 
-// ═══════════════════════════════════════════════════
-//  CONSTANTS
-// ═══════════════════════════════════════════════════
-
+// ── Snapshot timing ──────────────────────────────────────────────────────────
 const SNAP_MIN_MS        = 1.5 * 60 * 1000;   // 90 s
 const SNAP_MAX_MS        = 3   * 60 * 1000;   // 180 s
-const SESSION_GAP        = 15  * 60 * 1000;   // 15 min inactivity → new session
+const SESSION_GAP        = 15  * 60 * 1000;   // 15 min inactivity
 const DEBOUNCE_MS        = 600;
 const MAX_NOTE_SNAPS     = 5;
 const MAX_PROGRESS_SNAPS = 5;
 const MAX_NOTE_SPACES    = 3;
-const MIN_SPACE_PCT      = 25;                 // 25 vw minimum per open note space
+const MIN_SPACE_PCT      = 25;
 
+// ── Worker integration ───────────────────────────────────────────────────────
+const WORKER_URL          = 'https://0476756423.zzcjmd2b7y.workers.dev';
+const SIGN_TRIGGER_COUNT  = 4;    // sign after every N new auto-snapshots
+const FAILURE_WARN_COUNT  = 3;    // consecutive failures before persistent warning
+const FAILURE_BLOCK_COUNT = 10;   // consecutive failures before editing is blocked
+const FAILURE_BLOCK_MS    = 15 * 60 * 1000; // must span at least 15 min to block
+
+// ── Local integrity (kept for backward compat with pre-worker session files) ─
 const HMAC_KEY_MATERIAL  = 'chr-snap-integrity-v1-9f4a2e8d-c3b7-41f0-a6d5-7e1b3f829c14';
 const CONTENT_SEED       = 0xC4710D3E;
 const TITLE_SEED         = 0x8B2AF651;
@@ -670,22 +712,29 @@ const NOTES_SEED         = 0x3F9A17C2;
 const NOTE_SNAP_SEED     = 0xA7B3C9D1;
 const PROGRESS_SNAP_SEED = 0x9D3F5E2A;
 
+// ── localStorage keys ────────────────────────────────────────────────────────
 const K = {
-  CONTENT:       'chr4_content',
-  TITLE:         'chr4_title',
-  AUTHOR:        'chr4_author',
-  SNAPSHOTS:     'chr4_snapshots',
-  PROGRESS_SNAPS:'chr4_psnaps',
-  NOTES_1:       'chr4_notes_1',
-  NOTES_2:       'chr4_notes_2',
-  NOTES_3:       'chr4_notes_3',
-  NSNAPS_1:      'chr4_nsnaps_1',
-  NSNAPS_2:      'chr4_nsnaps_2',
-  NSNAPS_3:      'chr4_nsnaps_3',
-  SPACE_STATE:   'chr4_space_state',
-  FONT_SIZE:     'chr4_fontsize',
-  SPLIT_PCT:     'chr4_splitpct',
-  VERIFIER:      'chr4_verifier',
+  CONTENT:        'chr4_content',
+  TITLE:          'chr4_title',
+  AUTHOR:         'chr4_author',
+  SNAPSHOTS:      'chr4_snapshots',
+  PROGRESS_SNAPS: 'chr4_psnaps',
+  NOTES_1:        'chr4_notes_1',
+  NOTES_2:        'chr4_notes_2',
+  NOTES_3:        'chr4_notes_3',
+  NSNAPS_1:       'chr4_nsnaps_1',
+  NSNAPS_2:       'chr4_nsnaps_2',
+  NSNAPS_3:       'chr4_nsnaps_3',
+  SPACE_STATE:    'chr4_space_state',
+  FONT_SIZE:      'chr4_fontsize',
+  SPLIT_PCT:      'chr4_splitpct',
+  VERIFIER:       'chr4_verifier',
+  // Worker integration
+  UNSIGNED_SNAPS: 'chr4_unsigned_snaps',
+  KEY_VERSION:    'chr4_key_version',
+  FAIL_COUNT:     'chr4_fail_count',
+  FIRST_FAIL_TIME:'chr4_first_fail_time',
+  BLOCK_EVENT:    'chr4_block_event',
 };
 
 function noteContentKey(slot) { return K['NOTES_' + slot]; }
@@ -700,10 +749,7 @@ const COLORS = [
   { bg: '#C8EEF0', line: '#1A8090', name: 'Teal'       },
 ];
 
-// ═══════════════════════════════════════════════════
-//  STATE
-// ═══════════════════════════════════════════════════
-
+// ── Core state ───────────────────────────────────────────────────────────────
 let snapshots        = [];
 let lastSnapContent  = '';
 let lastSaveTime     = null;
@@ -716,27 +762,28 @@ let fsHandle         = null;
 let fsPending        = false;
 let _hmacKey         = null;
 let _internalDrag    = false;
-let progressSnapshots = [];          // array, max 5
+let progressSnapshots = [];
 let fontSize         = 16;
 let splitNotesWidthPct = 33;
 let isDraggingSplit  = false;
-let sessionVerifier  = null;         // 10-digit string or null
-
-// Note space state — 3 non-renumbering slots
+let sessionVerifier  = null;
 let noteSpaceState = [
   { slot: 1, exists: true,  open: true,  content: '', snapshots: [] },
   { slot: 2, exists: false, open: false, content: '', snapshots: [] },
   { slot: 3, exists: false, open: false, content: '', snapshots: [] },
 ];
-
-// Writing-time tracking
 let sessionCurrentStart = null;
 let sessionCurrentEnd   = null;
 
-// ═══════════════════════════════════════════════════
-//  VERIFIER SYSTEM
-// ═══════════════════════════════════════════════════
+// ── Worker state ─────────────────────────────────────────────────────────────
+let unsignedSnapshots      = [];
+let autoSnapsSinceLastSign = 0;
+let consecutiveFailures    = 0;
+let firstFailureTime       = null;
+let workerKeyVersion       = null;
+let signingInProgress      = false;
 
+// ── Verifier ─────────────────────────────────────────────────────────────────
 function generateVerifier() {
   return String(Math.floor(Math.random() * 9000000000) + 1000000000);
 }
@@ -745,7 +792,7 @@ function getOrCreateVerifier() {
   if (sessionVerifier) return sessionVerifier;
   const stored = storageGet(K.VERIFIER);
   if (stored) { sessionVerifier = stored; return sessionVerifier; }
-  return null; // generated lazily on first save
+  return null;
 }
 
 function ensureVerifier() {
@@ -756,7 +803,6 @@ function ensureVerifier() {
   return sessionVerifier;
 }
 
-// Show a persistent error banner for verifier mismatches
 function showVerifierError(msg) {
   const el = document.getElementById('verifier-error');
   el.innerHTML = msg + '<br><button onclick="document.getElementById(\'verifier-error\').classList.add(\'hidden\')">Dismiss</button>';
@@ -764,12 +810,10 @@ function showVerifierError(msg) {
   setTimeout(() => el.classList.add('hidden'), 18000);
 }
 
-// Returns { ok: true } or { ok: false, reason }
-// Also handles word-count threshold for merge checks.
 function checkVerifierForLoad(fileVerifier) {
   const local = storageGet(K.VERIFIER);
-  if (!local) return { ok: true };           // no local session — safe to load
-  if (!fileVerifier) return { ok: 'warn', reason: 'unverifiable' }; // old file, no vid
+  if (!local) return { ok: true };
+  if (!fileVerifier) return { ok: 'warn', reason: 'unverifiable' };
   if (local === fileVerifier) return { ok: true };
   return { ok: false, reason: 'mismatch' };
 }
@@ -780,10 +824,7 @@ function wordCountDiffPct(countA, countB) {
   return Math.abs(countA - countB) / larger;
 }
 
-// ═══════════════════════════════════════════════════
-//  WRITING-TIME TRACKING
-// ═══════════════════════════════════════════════════
-
+// ── Writing session tracking ─────────────────────────────────────────────────
 function trackWritingSession() {
   const now = Date.now();
   if (sessionCurrentStart === null) {
@@ -791,16 +832,12 @@ function trackWritingSession() {
     sessionCurrentEnd   = now;
   } else {
     if (now - (sessionCurrentEnd || 0) > SESSION_GAP) {
-      sessionCurrentStart = now; // resumed after long gap
+      sessionCurrentStart = now;
     }
     sessionCurrentEnd = now;
   }
 }
 
-// Returns total writing time in ms.
-// While a session is active (last keystroke < SESSION_GAP ago), the counter
-// runs wall-clock from session start so pauses within a session are included.
-// After a session ends it freezes at the actual typing span.
 function computeTotalWritingTime() {
   const sessions = computeSessions(snapshots);
   let total = sessions.reduce((sum, s) => sum + (s.end - s.start), 0);
@@ -811,14 +848,12 @@ function computeTotalWritingTime() {
     const lastSnapTs = snapshots.length > 0 ? snapshots[snapshots.length - 1].timestamp : 0;
 
     if (isActive) {
-      // Session live: count wall-clock from session start (includes intra-session pauses)
       if (sessionCurrentStart > lastSnapTs) {
         total += now - sessionCurrentStart;
       } else {
         total += Math.max(0, now - lastSnapTs);
       }
     } else {
-      // Session ended: count up to last keystroke (no trailing idle)
       if (sessionCurrentStart > lastSnapTs) {
         total += sessionCurrentEnd - sessionCurrentStart;
       } else {
@@ -832,10 +867,7 @@ function computeTotalWritingTime() {
   return total;
 }
 
-// ═══════════════════════════════════════════════════
-//  BINARY / OBFUSCATION HELPERS
-// ═══════════════════════════════════════════════════
-
+// ── Binary / base64 utilities ────────────────────────────────────────────────
 function uint8ToBase64(bytes) {
   let binary = '';
   const chunk = 0x8000;
@@ -850,6 +882,7 @@ function base64ToUint8(b64) {
   return out;
 }
 
+// ── Obfuscation ──────────────────────────────────────────────────────────────
 function deriveXorKey(seed) {
   const km = HMAC_KEY_MATERIAL, key = new Uint8Array(64);
   let s = ((seed >>> 0) ^ 0xDEADBEEF) >>> 0;
@@ -880,10 +913,7 @@ async function chainedSeed(timestamp, prevContent) {
   return (base ^ new DataView(hashBuf).getUint32(0, false)) >>> 0;
 }
 
-// ═══════════════════════════════════════════════════
-//  INTEGRITY — Chained HMAC-SHA256
-// ═══════════════════════════════════════════════════
-
+// ── Local HMAC (backward compat for pre-worker session files) ────────────────
 async function getHmacKey() {
   if (_hmacKey) return _hmacKey;
   _hmacKey = await crypto.subtle.importKey(
@@ -903,12 +933,16 @@ function deriveInterval(sessionStartTs) {
 function snapMsg(snap, idx, prevSig, rhythm) {
   return new TextEncoder().encode(`${idx}|${snap.timestamp}|${snap.wordCount}|${rhythm}|${prevSig}`);
 }
-async function signSnapshot(snap, idx, prevSig, rhythm) {
+async function signSnapshotLocal(snap, idx, prevSig, rhythm) {
   const k = await getHmacKey(), buf = await crypto.subtle.sign('HMAC', k, snapMsg(snap, idx, prevSig, rhythm));
   return uint8ToBase64(new Uint8Array(buf));
 }
+
+// Verify a single snapshot — skips local HMAC for worker-signed snaps
 async function verifySnapshot(snap, idx, prevSig, rhythm) {
   if (!snap.sig) return 'unsigned';
+  // Worker-signed snapshots carry keyVersion; skip local HMAC check
+  if (snap.keyVersion) return 'ok';
   try {
     const k = await getHmacKey();
     return await crypto.subtle.verify('HMAC', k, base64ToUint8(snap.sig), snapMsg(snap, idx, prevSig, rhythm))
@@ -933,15 +967,6 @@ async function verifyAllSnapshots(snaps) {
   return { results, tampered: results.filter(r => r === 'tampered').length, unsigned: results.filter(r => r === 'unsigned').length };
 }
 
-async function resignChain(snaps) {
-  if (!snaps.length) return;
-  const ids = sessionIdsFor(snaps), starts = computeSessionStarts(snaps, ids);
-  for (let i = 0; i < snaps.length; i++) {
-    const prevSig = i === 0 ? 'genesis' : snaps[i-1].sig;
-    snaps[i].sig = await signSnapshot(snaps[i], i, prevSig, deriveInterval(starts.get(ids[i])));
-  }
-}
-
 async function computeStructuralChecksum(snaps) {
   const n = snaps.length, ft = n ? snaps[0].timestamp : 0, lt = n ? snaps[n-1].timestamp : 0,
         lw = n ? snaps[n-1].wordCount : 0, lg = n ? (snaps[n-1].sig || '') : '';
@@ -951,6 +976,8 @@ async function computeStructuralChecksum(snaps) {
 
 async function verifyStructuralChecksum(checksum, snaps) {
   if (!checksum) return 'unsigned';
+  // If all snaps are worker-signed, skip local checksum
+  if (snaps.length && snaps.every(s => s.keyVersion)) return 'ok';
   try {
     const n = snaps.length, ft = n ? snaps[0].timestamp : 0, lt = n ? snaps[n-1].timestamp : 0,
           lw = n ? snaps[n-1].wordCount : 0, lg = n ? (snaps[n-1].sig || '') : '';
@@ -960,10 +987,7 @@ async function verifyStructuralChecksum(checksum, snaps) {
   } catch (_) { return 'tampered'; }
 }
 
-// ═══════════════════════════════════════════════════
-//  JSON SERIALIZATION  (v4)
-// ═══════════════════════════════════════════════════
-
+// ── Serialization ────────────────────────────────────────────────────────────
 async function serializeToJson() {
   const title   = document.getElementById('title-input').value;
   const author  = document.getElementById('author-input').value;
@@ -974,7 +998,13 @@ async function serializeToJson() {
   let prev = '';
   for (const s of snapshots) {
     const seed = await chainedSeed(s.timestamp, prev);
-    obfSnaps.push({ ts: s.timestamp, w: s.wordCount, d: obfuscateText(s.content, seed), g: s.sig || null });
+    obfSnaps.push({
+      ts: s.timestamp, w: s.wordCount,
+      d: obfuscateText(s.content, seed),
+      g: s.sig || null,
+      kv: s.keyVersion || null,
+      signed: s.signed || false,
+    });
     prev = s.content;
   }
 
@@ -997,19 +1027,34 @@ async function serializeToJson() {
     };
   });
 
+  const kv = workerKeyVersion || storageGet(K.KEY_VERSION);
+
+  const obfUnsigned = unsignedSnapshots.map(u => ({
+    ts: u.timestamp, w: u.wordCount,
+    d: obfuscateText(u.content, CONTENT_SEED),
+    pt: u.content,
+    reason: u.reason,
+  }));
+
+  let blockEvent = null;
+  try { const be = storageGet(K.BLOCK_EVENT); if (be) blockEvent = JSON.parse(be); } catch(_) {}
+
   return JSON.stringify({
     v: 4, vid,
+    keyVersion: kv || null,
+    blockEvent,
     t: obfuscateText(title, TITLE_SEED), a: author,
     c: obfuscateText(content, CONTENT_SEED), plaintext: content,
     s: obfSnaps, ps: obfProgressSnaps,
     spaces: spacesData,
+    unsignedSnaps: obfUnsigned,
     x: await computeStructuralChecksum(snapshots),
   });
 }
 
 async function deserializeFromJson(jsonStr) {
   const data = JSON.parse(jsonStr);
-  if (!data || data.v !== 4) throw new Error('not chronicle v4');
+  if (!data || data.v !== 4) throw new Error('not editor v4');
 
   const title   = deobfuscateText(data.t || '', TITLE_SEED);
   const author  = data.a || '';
@@ -1020,7 +1065,12 @@ async function deserializeFromJson(jsonStr) {
   for (const s of data.s || []) {
     const seed = await chainedSeed(s.ts, prev);
     const c = deobfuscateText(s.d || '', seed);
-    snaps.push({ timestamp: s.ts, wordCount: s.w, content: c, sig: s.g || null });
+    snaps.push({
+      timestamp: s.ts, wordCount: s.w, content: c,
+      sig: s.g || null,
+      keyVersion: s.kv || null,
+      signed: s.signed || (s.g ? true : false),
+    });
     prev = c;
   }
 
@@ -1044,20 +1094,28 @@ async function deserializeFromJson(jsonStr) {
     };
   });
 
+  const unsnaps = (data.unsignedSnaps || []).map(u => ({
+    timestamp: u.ts, wordCount: u.w,
+    content: deobfuscateText(u.d || '', CONTENT_SEED) || u.pt || '',
+    reason: u.reason,
+    takenAt: u.ts,
+  }));
+
   return {
     title, author, content, vid: data.vid || null,
+    keyVersion: data.keyVersion || null,
+    blockEvent: data.blockEvent || null,
     snapshots: snaps, progressSnapshots: progSnaps,
-    spaces, _checksum: data.x || null,
+    spaces, unsignedSnapshots: unsnaps,
+    _checksum: data.x || null,
   };
 }
 
-// ═══════════════════════════════════════════════════
-//  STORAGE
-// ═══════════════════════════════════════════════════
-
+// ── localStorage helpers ─────────────────────────────────────────────────────
 function storageSet(key, value) { try { localStorage.setItem(key, value); return true; } catch (_) { return false; } }
 function storageGet(key) { try { return localStorage.getItem(key); } catch (_) { return null; } }
 
+// ── File system link ─────────────────────────────────────────────────────────
 function updateFsIndicator() {
   const el = document.getElementById('fs-indicator'), lb = document.getElementById('fs-label');
   if (!el) return;
@@ -1074,19 +1132,18 @@ async function linkFile() {
   if (!window.showSaveFilePicker) { showToast('File System API not supported (use Chrome or Edge)'); return; }
   try {
     const handle = await window.showSaveFilePicker({
-      suggestedName: safeFilename(document.getElementById('title-input').value || 'chronicle') + '.json',
-      types: [{ description: 'Chronicle session file', accept: { 'application/json': ['.json'] } }],
+      suggestedName: safeFilename(document.getElementById('title-input').value || 'session') + '.json',
+      types: [{ description: 'Editor session file', accept: { 'application/json': ['.json'] } }],
     });
     const rawText = await (await handle.getFile()).text();
     if (rawText.trim()) {
       try {
         const data = await deserializeFromJson(rawText);
 
-        // Verifier check
         const vCheck = checkVerifierForLoad(data.vid);
         if (!vCheck.ok) {
           showVerifierError(
-            '<strong>Session mismatch.</strong> This file belongs to a different Chronicle session than your current cache.<br>' +
+            '<strong>Session mismatch.</strong> This file belongs to a different session than your current cache.<br>' +
             'To load it safely: (1) Save your current session via <em>File → Save Session File</em>, ' +
             '(2) <em>File → Clear &amp; Reset</em>, then (3) link this file again.'
           );
@@ -1098,13 +1155,13 @@ async function linkFile() {
 
         const msg = data.snapshots.length
           ? `This file contains ${data.snapshots.length} snapshot${data.snapshots.length !== 1 ? 's' : ''} from "${data.title || 'Untitled'}".\n\nLoad session from this file?`
-          : 'This file appears to be an empty Chronicle session.\n\nLink it for saving?';
+          : 'This file appears to be an empty session.\n\nLink it for saving?';
         if (snapshots.length === 0 || confirm(msg)) {
           fsHandle = handle; updateFsIndicator(); await loadFromJsonData(data);
           showToast('Session restored — ' + handle.name); return;
         }
       } catch (err) {
-        if (rawText.trim()) showToast('Could not read file — may be wrong format (Chronicle v4 required)');
+        if (rawText.trim()) showToast('Could not read file');
       }
     }
     fsHandle = handle; updateFsIndicator(); await persistToJson();
@@ -1131,11 +1188,21 @@ async function loadFromJsonData(data) {
 
   editor.value = data.content; titleInput.value = data.title;
   if (data.author) authorInput.value = data.author;
-  document.title = (data.title || 'Untitled') + ' — Chronicle';
+  document.title = (data.title || 'Untitled') + ' — Editor';
 
   snapshots = data.snapshots;
   if (snapshots.length) lastSnapContent = snapshots[snapshots.length - 1].content;
   lastSaveTime = new Date();
+
+  if (Array.isArray(data.unsignedSnapshots) && data.unsignedSnapshots.length) {
+    unsignedSnapshots = data.unsignedSnapshots;
+    persistUnsignedSnapshots();
+  }
+
+  if (data.keyVersion) {
+    workerKeyVersion = data.keyVersion;
+    storageSet(K.KEY_VERSION, data.keyVersion);
+  }
 
   progressSnapshots = Array.isArray(data.progressSnapshots) ? data.progressSnapshots.slice(0, MAX_PROGRESS_SNAPS) : [];
   updateProgressButton();
@@ -1152,7 +1219,6 @@ async function loadFromJsonData(data) {
     });
   }
 
-  // Sync verifier from file
   if (data.vid) { sessionVerifier = data.vid; storageSet(K.VERIFIER, sessionVerifier); }
 
   storageSet(K.CONTENT, LZString.compressToUTF16(data.content));
@@ -1175,8 +1241,9 @@ async function loadFromJsonData(data) {
   if (issues.length) showToast('⚠ Integrity: ' + issues.join(', '));
 }
 
+// ── Persistence helpers ──────────────────────────────────────────────────────
 function saveContent(text) {
-  if (text.trim()) ensureVerifier(); // generate verifier on first content
+  if (text.trim()) ensureVerifier();
   storageSet(K.CONTENT, LZString.compressToUTF16(text)) || storageSet(K.CONTENT, text);
   persistToJson();
 }
@@ -1188,9 +1255,9 @@ function loadTitle()     { return storageGet(K.TITLE) || ''; }
 function saveAuthor(a)   { storageSet(K.AUTHOR, a); persistToJson(); }
 function loadAuthor()    { return storageGet(K.AUTHOR) || ''; }
 
-// ═══════════════════════════════════════════════════
-//  NOTE SPACE MANAGEMENT
-// ═══════════════════════════════════════════════════
+function persistUnsignedSnapshots() {
+  try { storageSet(K.UNSIGNED_SNAPS, JSON.stringify(unsignedSnapshots)); } catch(_) {}
+}
 
 function persistNoteSpaceState() {
   const state = noteSpaceState.map(s => ({ exists: s.exists, open: s.open }));
@@ -1211,13 +1278,219 @@ function saveNoteSpaceSnaps(slot) {
   persistToJson();
 }
 
+// ── Worker: connectivity indicator ───────────────────────────────────────────
+function updateConnectivityIndicator(state) {
+  const el = document.getElementById('status-worker');
+  if (!el) return;
+  el.className = 'worker-indicator ' + state;
+  el.textContent = state === 'connected' ? '' : state === 'warning' ? 'Signing delayed' : 'Connection required';
+  el.title = {
+    connected: 'Signing service connected · Key ' + (workerKeyVersion || '?'),
+    warning:   'Signing service unreachable — snapshots queued',
+    blocked:   'Signing service unreachable — editing suspended',
+  }[state] || 'Checking signing service…';
+}
+
+// ── Worker: health check ─────────────────────────────────────────────────────
+async function checkWorkerHealth() {
+  try {
+    const res = await fetch(WORKER_URL + '/health', { method: 'GET' });
+    if (res.ok) {
+      const data = await res.json();
+      workerKeyVersion = data.keyVersion;
+      storageSet(K.KEY_VERSION, workerKeyVersion);
+      resetFailureState();
+      updateConnectivityIndicator('connected');
+    } else {
+      handleSigningFailure('health_check_failed');
+    }
+  } catch {
+    handleSigningFailure('network_error');
+  }
+}
+
+// ── Worker: bundle signing ───────────────────────────────────────────────────
+async function triggerBundleSigning(isExport = false) {
+  if (signingInProgress) return;
+  signingInProgress = true;
+
+  // Collect unsigned snapshots from main array
+  const toSign = snapshots
+    .map((s, i) => ({ ...s, _idx: i }))
+    .filter(s => !s.signed);
+
+  if (toSign.length === 0) {
+    signingInProgress = false;
+    return;
+  }
+
+  // Anchor: last verified prevSig
+  const lastSignedIdx = snapshots.reduce((best, s, i) => (s.signed ? i : best), -1);
+  const anchorSig = lastSignedIdx >= 0 ? snapshots[lastSignedIdx].sig : 'genesis';
+
+  const payload = {
+    sessionId: ensureVerifier(),
+    anchorSig,
+    snapshots: toSign.map((s, bundleIdx) => ({
+      index:     s._idx,
+      timestamp: s.timestamp,
+      wordCount: s.wordCount,
+      prevSig:   bundleIdx === 0 ? anchorSig : null,
+    })),
+  };
+
+  try {
+    const res = await fetch(WORKER_URL + '/sign', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      handleSigningFailure(err.error || 'worker_rejected');
+      moveToUnsigned(toSign, err.error ? 'worker_rejected' : 'worker_rejected');
+    } else {
+      const data = await res.json();
+      applySignatures(toSign, data.signatures, data.keyVersion);
+      autoSnapsSinceLastSign = 0;
+      resetFailureState();
+      saveSnapshots();
+      persistUnsignedSnapshots();
+      updateStatusBar();
+    }
+  } catch {
+    handleSigningFailure('network_error');
+    moveToUnsigned(toSign, 'network_error');
+  }
+
+  signingInProgress = false;
+}
+
+function applySignatures(toSign, signatures, keyVersion) {
+  toSign.forEach((s, i) => {
+    snapshots[s._idx].sig        = signatures[i];
+    snapshots[s._idx].signed     = true;
+    snapshots[s._idx].keyVersion = keyVersion;
+  });
+}
+
+function moveToUnsigned(toSign, reason) {
+  const failedIndices = new Set(toSign.map(s => s._idx));
+  toSign.forEach(s => {
+    unsignedSnapshots.push({
+      timestamp: s.timestamp,
+      wordCount: s.wordCount,
+      content:   s.content,
+      reason,
+      takenAt:   s.timestamp,
+    });
+  });
+  // Remove failed snaps from main chain — filter rather than splice to avoid index drift
+  snapshots = snapshots.filter((_, i) => !failedIndices.has(i));
+  persistUnsignedSnapshots();
+  saveSnapshots();
+}
+
+// ── Worker: failure handling ─────────────────────────────────────────────────
+function handleSigningFailure(reason) {
+  consecutiveFailures++;
+
+  if (firstFailureTime === null) {
+    firstFailureTime = Date.now();
+    storageSet(K.FIRST_FAIL_TIME, String(firstFailureTime));
+  }
+
+  storageSet(K.FAIL_COUNT, String(consecutiveFailures));
+
+  const failureDuration = Date.now() - firstFailureTime;
+
+  if (
+    consecutiveFailures >= FAILURE_BLOCK_COUNT &&
+    failureDuration >= FAILURE_BLOCK_MS
+  ) {
+    blockEditing(reason);
+    updateConnectivityIndicator('blocked');
+  } else if (consecutiveFailures >= FAILURE_WARN_COUNT) {
+    updateConnectivityIndicator('warning');
+    showPersistentWarning(
+      'The signing service is unreachable. Snapshots are being stored locally as unverified. ' +
+      'Please check your connection. (' + consecutiveFailures + ' consecutive failures)'
+    );
+  } else {
+    updateConnectivityIndicator('warning');
+  }
+}
+
+function blockEditing(reason) {
+  const editor = document.getElementById('editor');
+  if (editor) editor.disabled = true;
+
+  const blockEvent = { timestamp: Date.now(), reason, failCount: consecutiveFailures };
+  storageSet(K.BLOCK_EVENT, JSON.stringify(blockEvent));
+
+  showPersistentWarning(
+    '⚠ Editing suspended. The signing service has been unreachable for an extended period. ' +
+    'This event has been logged in your session file. Please resolve your connection and reload, ' +
+    'or contact your supervisor.',
+    true // non-dismissible
+  );
+}
+
+function resetFailureState() {
+  consecutiveFailures = 0;
+  firstFailureTime    = null;
+  storageSet(K.FAIL_COUNT,      '0');
+  storageSet(K.FIRST_FAIL_TIME, '');
+  hidePersistentWarning();
+  updateConnectivityIndicator('connected');
+}
+
+// ── Worker: persistent warning banner ────────────────────────────────────────
+function showPersistentWarning(message, nonDismissible = false) {
+  const el = document.getElementById('persistent-warning');
+  if (!el) return;
+  el.textContent = message;
+  el.classList.remove('hidden', 'non-dismissible');
+  if (nonDismissible) el.classList.add('non-dismissible');
+}
+
+function hidePersistentWarning() {
+  const el = document.getElementById('persistent-warning');
+  if (el) el.classList.add('hidden');
+}
+
+// ── Export gate ──────────────────────────────────────────────────────────────
+async function gatedExport(exportFn) {
+  await triggerBundleSigning(true);
+
+  const stillUnsigned = snapshots.filter(s => !s.signed).length;
+
+  if (stillUnsigned > 0) {
+    showToast('Export blocked: signing service unreachable. Resolve connection first.');
+    return;
+  }
+
+  if (unsignedSnapshots.length > 0) {
+    const n = unsignedSnapshots.length;
+    const proceed = confirm(
+      `Your session contains ${n} unverified snapshot${n !== 1 ? 's' : ''} taken during connectivity gaps. ` +
+      `These are stored separately from the verified chain and clearly labelled in the report.\n\nProceed with export?`
+    );
+    if (!proceed) return;
+  }
+
+  exportFn();
+}
+
+// ── Note spaces ──────────────────────────────────────────────────────────────
 function updateNoteSpaceSnapBtn(slot) {
   const sp = noteSpaceState[slot - 1];
   if (!sp) return;
   const btn = document.querySelector(`.note-snap-btn[data-slot="${slot}"]`);
   if (!btn) return;
   const n = sp.snapshots.length;
-  btn.textContent = `◎ ${n}/${MAX_NOTE_SNAPS}`;
+  btn.textContent = `Snap ${n}/${MAX_NOTE_SNAPS}`;
   btn.classList.remove('full', 'taken');
   if (n >= MAX_NOTE_SNAPS) { btn.classList.add('full'); btn.title = `Maximum note snapshots reached (${n}/${MAX_NOTE_SNAPS})`; }
   else if (n > 0) { btn.classList.add('taken'); btn.title = `${n} note snapshot${n !== 1 ? 's' : ''} saved — click to add another`; }
@@ -1288,7 +1561,6 @@ function clearNoteSpace(slotNum) {
   showToast(`Space ${slotNum} cleared`);
 }
 
-// Show the fixed-position add/reopen menu
 function showNoteSpaceMenu(btn) {
   closeNoteSpaceMenu();
   const menu = document.getElementById('note-space-menu');
@@ -1319,7 +1591,6 @@ function showNoteSpaceMenu(btn) {
   menu.style.left  = 'auto';
   menu.classList.remove('hidden');
 
-  // Close on outside click
   setTimeout(() => {
     const handler = e => {
       if (!menu.contains(e.target) && e.target !== btn) { closeNoteSpaceMenu(); document.removeEventListener('click', handler); }
@@ -1332,10 +1603,6 @@ function closeNoteSpaceMenu() {
   document.getElementById('note-space-menu').classList.add('hidden');
   document.getElementById('note-space-menu').innerHTML = '';
 }
-
-// ═══════════════════════════════════════════════════
-//  NOTE SPACE RENDER
-// ═══════════════════════════════════════════════════
 
 function renderNotesUI() {
   const tabbar    = document.getElementById('notes-tabbar');
@@ -1351,7 +1618,6 @@ function renderNotesUI() {
   tabbar.classList.toggle('has-add', canAdd);
 
   openSpaces.forEach(sp => {
-    // ── Tab ──────────────────────────────
     const tab = document.createElement('div');
     tab.className = 'note-tab';
     tab.dataset.slot = sp.slot;
@@ -1369,7 +1635,7 @@ function renderNotesUI() {
     snapBtn.className = 'btn note-snap-btn';
     snapBtn.dataset.slot = sp.slot;
     const n = sp.snapshots.length;
-    snapBtn.textContent = `◎ ${n}/${MAX_NOTE_SNAPS}`;
+    snapBtn.textContent = `Snap ${n}/${MAX_NOTE_SNAPS}`;
     if (n >= MAX_NOTE_SNAPS) { snapBtn.classList.add('full'); snapBtn.title = `Max snapshots reached (${n}/${MAX_NOTE_SNAPS})`; }
     else if (n > 0) { snapBtn.classList.add('taken'); snapBtn.title = `${n} snapshot${n !== 1 ? 's' : ''} — add another`; }
     else { snapBtn.title = `Save note snapshot (max ${MAX_NOTE_SNAPS})`; }
@@ -1394,7 +1660,6 @@ function renderNotesUI() {
     tab.appendChild(clearBtn);
     tabbar.appendChild(tab);
 
-    // ── Space column ──────────────────────
     const spaceDiv = document.createElement('div');
     spaceDiv.className = 'note-space';
     spaceDiv.dataset.slot = sp.slot;
@@ -1407,15 +1672,13 @@ function renderNotesUI() {
     ta.value = sp.content;
     ta.style.fontSize = fontSize + 'px';
 
-    // Paste & drop blocking
-    ta.addEventListener('paste', e => { e.preventDefault(); showToast('Pasting is disabled in Chronicle'); });
+    ta.addEventListener('paste', e => { e.preventDefault(); showToast('Pasting is disabled in Editor'); });
     ta.addEventListener('dragstart', () => { _internalDrag = true; });
     ta.addEventListener('dragend', () => { _internalDrag = false; });
     ta.addEventListener('drop', e => { if (!_internalDrag) { e.preventDefault(); showToast('External drop is disabled'); } });
 
-    // Ctrl+V blocking (belt-and-suspenders)
     ta.addEventListener('keydown', e => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'v') { e.preventDefault(); showToast('Pasting is disabled in Chronicle'); }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'v') { e.preventDefault(); showToast('Pasting is disabled in Editor'); }
     });
 
     ta.addEventListener('input', () => {
@@ -1430,7 +1693,6 @@ function renderNotesUI() {
     spacesRow.appendChild(spaceDiv);
   });
 
-  // [+] button
   if (canAdd) {
     const addBtn = document.createElement('button');
     addBtn.className = 'btn note-tab-add';
@@ -1444,7 +1706,6 @@ function renderNotesUI() {
     }
   }
 
-  // No open spaces placeholder
   if (openSpaces.length === 0) {
     const ph = document.createElement('div');
     ph.className = 'note-spaces-empty';
@@ -1452,7 +1713,6 @@ function renderNotesUI() {
     spacesRow.appendChild(ph);
   }
 
-  // Enforce minimum notes pane width
   if (notesVisible) enforceNotesPaneWidth();
 }
 
@@ -1467,10 +1727,7 @@ function enforceNotesPaneWidth() {
   }
 }
 
-// ═══════════════════════════════════════════════════
-//  SESSIONS
-// ═══════════════════════════════════════════════════
-
+// ── Session computation ──────────────────────────────────────────────────────
 function sessionIdsFor(snaps) {
   if (!snaps.length) return [];
   const ids = [1];
@@ -1495,10 +1752,7 @@ function currentSessionId() {
   return Date.now() - snapshots[snapshots.length-1].timestamp > SESSION_GAP ? lastId + 1 : lastId;
 }
 
-// ═══════════════════════════════════════════════════
-//  FORMATTING HELPERS
-// ═══════════════════════════════════════════════════
-
+// ── Formatting ───────────────────────────────────────────────────────────────
 function fmtElapsed(ms) {
   const m = Math.floor(ms / 60000), h = Math.floor(m / 60);
   return `${h}:${String(m % 60).padStart(2, '0')}`;
@@ -1523,10 +1777,7 @@ function fmtDateTime(ts) {
 }
 function countWords(text) { return text.trim() ? text.trim().split(/\s+/).length : 0; }
 
-// ═══════════════════════════════════════════════════
-//  PROGRESS SNAPSHOTS  (array, max 5)
-// ═══════════════════════════════════════════════════
-
+// ── Progress snapshots ───────────────────────────────────────────────────────
 function updateProgressButton() {
   const btn = document.getElementById('btn-progress-snap');
   const countEl = document.getElementById('progress-snap-count');
@@ -1563,20 +1814,13 @@ function takeProgressSnapshot() {
   updateProgressButton();
 }
 
-// ═══════════════════════════════════════════════════
-//  FONT SIZE
-// ═══════════════════════════════════════════════════
-
+// ── Font size / split ────────────────────────────────────────────────────────
 function applyFontSize() {
   const e = document.getElementById('editor');
   if (e) e.style.fontSize = fontSize + 'px';
   document.querySelectorAll('.note-space-editor').forEach(el => { el.style.fontSize = fontSize + 'px'; });
   try { localStorage.setItem(K.FONT_SIZE, fontSize); } catch(_) {}
 }
-
-// ═══════════════════════════════════════════════════
-//  SPLIT PANE
-// ═══════════════════════════════════════════════════
 
 function setNotesWidth(pct) {
   const openCount = noteSpaceState.filter(s => s.exists && s.open).length || 1;
@@ -1591,7 +1835,6 @@ function toggleNotes() {
   notesVisible = !notesVisible;
   const np = document.getElementById('notes-pane'), h = document.getElementById('split-handle'), btn = document.getElementById('btn-notes');
   if (notesVisible) {
-    // Ensure at least one space is open/exists
     const anyOpen = noteSpaceState.some(s => s.exists && s.open);
     if (!anyOpen) {
       const first = noteSpaceState.find(s => s.exists);
@@ -1622,10 +1865,7 @@ function initSplitResize() {
   document.addEventListener('touchend', () => { if (isDraggingSplit) { isDraggingSplit = false; handle.classList.remove('dragging'); } });
 }
 
-// ═══════════════════════════════════════════════════
-//  SNAPSHOT SCHEDULING
-// ═══════════════════════════════════════════════════
-
+// ── Auto-snapshot scheduling ─────────────────────────────────────────────────
 function getCurrentSessionInterval() {
   if (!snapshots.length) return Math.round((SNAP_MIN_MS + SNAP_MAX_MS) / 2);
   const ids = sessionIdsFor(snapshots), sid = ids[ids.length-1];
@@ -1642,27 +1882,48 @@ function scheduleNextSnapshot() {
   }, getCurrentSessionInterval());
 }
 
-// ═══════════════════════════════════════════════════
-//  SNAPSHOTS
-// ═══════════════════════════════════════════════════
-
+// ── Snapshot taking (Worker-based signing) ───────────────────────────────────
 async function takeSnapshot(text, silent) {
-  const idx = snapshots.length;
-  const snap = { timestamp: Date.now(), content: text, wordCount: countWords(text), sig: null };
+  const snap = {
+    timestamp: Date.now(),
+    content:   text,
+    wordCount: countWords(text),
+    sig:       null,
+    signed:    false,
+    keyVersion: null,
+  };
+
   snapshots.push(snap);
   lastSnapContent = text;
+  autoSnapsSinceLastSign++;
 
-  const prevSig = idx === 0 ? 'genesis' : (snapshots[idx-1].sig || 'genesis');
-  const ids = sessionIdsFor(snapshots), starts = computeSessionStarts(snapshots, ids);
-  snap.sig = await signSnapshot(snap, idx, prevSig, deriveInterval(starts.get(ids[idx])));
-
-  saveSnapshots(); updateStatusBar();
+  // Persist immediately — content is safe regardless of signing outcome
+  saveSnapshots();
+  updateStatusBar();
   if (!silent) blinkSnap();
+
+  // Check if bundle trigger threshold is reached
+  if (autoSnapsSinceLastSign >= SIGN_TRIGGER_COUNT) {
+    await triggerBundleSigning();
+  }
 }
 
-// ═══════════════════════════════════════════════════
-//  MARKDOWN
-// ═══════════════════════════════════════════════════
+async function doSaveSnapshot(silent) {
+  const text = document.getElementById('editor').value;
+  saveContent(text); lastSaveTime = new Date();
+  if (text.trim() && text !== lastSnapContent) { await takeSnapshot(text, silent); scheduleNextSnapshot(); }
+  updateStatusBar();
+}
+
+// ── Footnotes / Markdown ─────────────────────────────────────────────────────
+function insertFootnote() {
+  const el = document.getElementById('editor'), text = el.value, pos = el.selectionStart;
+  const existing = [...text.matchAll(/\[\^(\d+)\]/g)].map(m => parseInt(m[1]));
+  const n = existing.length ? Math.max(...existing) + 1 : 1;
+  const withDef = text.slice(0, pos) + `[^${n}]` + text.slice(pos) + `\n\n[^${n}]: `;
+  el.value = withDef; el.selectionStart = el.selectionEnd = withDef.length;
+  el.focus(); onInput();
+}
 
 function escHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -1694,10 +1955,7 @@ function renderMd(md) {
   return html;
 }
 
-// ═══════════════════════════════════════════════════
-//  DIFF-BASED COLORING
-// ═══════════════════════════════════════════════════
-
+// ── Diff / color history ─────────────────────────────────────────────────────
 function wordNormalizeProv(text, prov) {
   let i = 0;
   while (i < text.length) {
@@ -1766,10 +2024,6 @@ function buildColorSegmentsWithCurrent(snaps, currentContent) {
   return result;
 }
 
-// ═══════════════════════════════════════════════════
-//  HELPERS
-// ═══════════════════════════════════════════════════
-
 function safeFilename(s) { return (s || 'document').replace(/[^a-zA-Z0-9_\-\u00C0-\u024F ]/g, '').trim() || 'document'; }
 
 function downloadHtml(filename, html) {
@@ -1778,10 +2032,7 @@ function downloadHtml(filename, html) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-// ═══════════════════════════════════════════════════
-//  EXPORT
-// ═══════════════════════════════════════════════════
-
+// ── Export styles ────────────────────────────────────────────────────────────
 const BASE_STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,600;1,8..60,300;1,8..60,400&display=swap');
   body { max-width: 720px; margin: 60px auto; padding: 0 24px 120px; font-family: 'Source Serif 4', Georgia, serif; font-size: 17px; line-height: 1.85; color: #1C1A16; background: #FEFCF8; }
@@ -1837,12 +2088,19 @@ const REPORT_STYLES = `
   .psnap-meta { font-size: 12px; color: #72695E; font-style: italic; margin: .25em 0 1em; font-family: 'Source Sans 3', system-ui, sans-serif; }
   .nsnap-block { font-family: 'Source Serif 4', Georgia, serif; font-size: 13.5px; line-height: 1.8; background: #FFFEF5; border: 1px solid #C8A84B; border-radius: 5px; padding: 20px 24px; white-space: pre-wrap; word-break: break-word; margin: 0 0 1em; }
   .nsnap-meta { font-size: 12px; color: #72695E; font-style: italic; margin: .25em 0 .6em; font-family: 'Source Sans 3', system-ui, sans-serif; }
+  .block-event-notice { background: #7A1A1A; color: #FFF5F5; padding: 14px 20px; border-radius: 5px; font-size: 13px; margin: 0 0 2em; font-family: 'Source Sans 3', system-ui, sans-serif; line-height: 1.6; }
+  .unverified-note { font-size: 13px; color: #72695E; font-style: italic; margin: .5em 0 1.5em; font-family: 'Source Sans 3', system-ui, sans-serif; line-height: 1.6; }
+  .unverified-snap { margin: 0 0 1.5em; }
+  .unverified-meta { font-size: 12px; color: #7A5510; font-style: italic; margin: .25em 0 .6em; font-family: 'Source Sans 3', system-ui, sans-serif; }
+  .unverified-block { font-family: 'Source Serif 4', Georgia, serif; font-size: 13.5px; line-height: 1.8; background: #FFFDF5; border: 1px solid #C8A84B; border-left: 4px solid #B8922A; border-radius: 0 5px 5px 0; padding: 20px 24px; white-space: pre-wrap; word-break: break-word; }
 `;
 
+// ── Export: combined document + report ───────────────────────────────────────
 function exportCombined() {
   const title   = document.getElementById('title-input').value || 'Untitled';
   const author  = document.getElementById('author-input').value;
   const content = document.getElementById('editor').value;
+  const kv      = workerKeyVersion || storageGet(K.KEY_VERSION);
 
   const bylineHtml = author ? `<p class="doc-byline">${escHtml(author)}</p>` : '';
   const docHtml    = renderMd(content);
@@ -1881,12 +2139,24 @@ function exportCombined() {
 
   let reportHtml = '';
   const authorLine = author ? ` · ${escHtml(author)}` : '';
+  const kvLine     = kv ? ` · Key ${escHtml(kv)}` : '';
+
+  // Block event notice
+  let blockEventHtml = '';
+  try {
+    const be = storageGet(K.BLOCK_EVENT);
+    if (be) {
+      const bev = JSON.parse(be);
+      blockEventHtml = `<div class="block-event-notice"><strong>Editing was suspended</strong> at ${fmtDateTime(bev.timestamp)} due to sustained signing service unavailability (${bev.failCount} consecutive failures). This event was logged automatically.</div>`;
+    }
+  } catch(_) {}
 
   if (snapshots.length) {
     const sessions     = computeSessions(snapshots);
     const snapIds      = sessionIdsFor(snapshots);
     const totalWriting = computeTotalWritingTime();
     const finalWords   = snapshots[snapshots.length-1].wordCount;
+    const signedCount  = snapshots.filter(s => s.keyVersion).length;
 
     let sessionRows = '';
     for (const s of sessions)
@@ -1899,11 +2169,11 @@ function exportCombined() {
         if (prevSid !== 0) timeline += `<div class="tl-gap">↓ ${fmtDur(snap.timestamp - snapshots[i-1].timestamp)} gap · Session ${sid} begins</div>`;
         prevSid = sid;
       }
-      timeline += `<div class="tl-row" style="border-left-color:${color.line}"><span class="tl-num">Snap #${i+1} · Session ${sid}</span><span class="tl-words">${snap.wordCount.toLocaleString()} words</span></div>`;
+      const kvTag = snap.keyVersion ? ` · ${snap.keyVersion}` : '';
+      timeline += `<div class="tl-row" style="border-left-color:${color.line}"><span class="tl-num">Snap #${i+1} · Session ${sid}${kvTag}</span><span class="tl-words">${snap.wordCount.toLocaleString()} words</span></div>`;
     }
     timeline += '</div>';
 
-    // Progress snapshots — array
     let psnapHtml = '';
     if (progressSnapshots.length > 0) {
       psnapHtml = '<h2>Progress Snapshots</h2>';
@@ -1912,7 +2182,6 @@ function exportCombined() {
       });
     }
 
-    // Note snapshots — per space
     let nsnapHtml = '';
     const spacesWithSnaps = noteSpaceState.filter(sp => sp.exists && sp.snapshots.length > 0);
     if (spacesWithSnaps.length > 0) {
@@ -1925,12 +2194,31 @@ function exportCombined() {
       });
     }
 
+    // Unverified snapshots section
+    let unverifiedHtml = '';
+    if (unsignedSnapshots.length > 0) {
+      const reasonLabels = {
+        network_error:   'Network unreachable',
+        worker_rejected: 'Rejected by signing service',
+        timeout:         'Request timed out',
+        queue_lost:      'Queue lost on reload',
+      };
+      unverifiedHtml = `<h2>Unverified Snapshots</h2>
+<p class="unverified-note">The following snapshots could not be verified by the signing service at the time they were taken, typically due to a network interruption. They are stored separately from the verified chain and do not affect its integrity. Their authenticity should be assessed on the basis of content plausibility in the context of the surrounding verified record.</p>`;
+      unsignedSnapshots.forEach((u, i) => {
+        const label = reasonLabels[u.reason] || u.reason;
+        unverifiedHtml += `<div class="unverified-snap"><p class="unverified-meta">Unverified snapshot ${i+1} · ${fmtDateTime(u.timestamp)} · ${u.wordCount.toLocaleString()} words · Reason: ${escHtml(label)}</p><div class="unverified-block">${escHtml(u.content)}</div></div>`;
+      });
+    }
+
     reportHtml = `<div class="rs">
+  ${blockEventHtml}
   <h1>Writing Report</h1>
-  <p class="sub">${escHtml(title)}${authorLine} · Generated ${fmtDateTime(Date.now())}</p>
+  <p class="sub">${escHtml(title)}${authorLine} · Generated ${fmtDateTime(Date.now())}${kvLine}</p>
   <div class="stats">
     <div class="stat"><div class="stat-l">Sessions</div><div class="stat-v">${sessions.length}</div></div>
     <div class="stat"><div class="stat-l">Snapshots</div><div class="stat-v">${snapshots.length}</div></div>
+    <div class="stat"><div class="stat-l">Signed</div><div class="stat-v">${signedCount}/${snapshots.length}</div></div>
     <div class="stat"><div class="stat-l">Writing time</div><div class="stat-v">${fmtDur(totalWriting)}</div></div>
     <div class="stat"><div class="stat-l">Final words</div><div class="stat-v">${finalWords.toLocaleString()}</div></div>
   </div>
@@ -1938,6 +2226,7 @@ function exportCombined() {
   <table class="rtable"><thead><tr><th>#</th><th>Duration</th><th>Snapshots</th><th>Words</th></tr></thead><tbody>${sessionRows}</tbody></table>
   ${psnapHtml}${nsnapHtml}
   <h2>Snapshot Timeline</h2>${timeline}
+  ${unverifiedHtml}
   <h2>Color Legend</h2>${legend}
   <h2>Document with Writing History</h2>
   <p class="cdoc-note">Raw markdown source. Each color shows text added within one snapshot interval (randomised 1.5–3 min per session). Colors cycle after 6 intervals. Uncolored text has not yet been snapshotted.</p>
@@ -1945,8 +2234,9 @@ function exportCombined() {
 </div>`;
   } else {
     reportHtml = `<div class="rs">
+  ${blockEventHtml}
   <h1>Writing Report</h1>
-  <p class="sub">${escHtml(title)}${authorLine} · Generated ${fmtDateTime(Date.now())}</p>
+  <p class="sub">${escHtml(title)}${authorLine} · Generated ${fmtDateTime(Date.now())}${kvLine}</p>
   <p style="color:#72695E;font-style:italic;margin:0 0 2em">No snapshots recorded yet.</p>
   <h2>Document with Writing History</h2>
   <p class="cdoc-note">No snapshots taken — all text shown uncolored.</p>
@@ -1966,15 +2256,12 @@ ${reportHtml}
 </body></html>`);
 }
 
-// ═══════════════════════════════════════════════════
-//  SESSION FILE BACKUP / RESTORE
-// ═══════════════════════════════════════════════════
-
+// ── Export: session file backup ──────────────────────────────────────────────
 async function exportBackup() {
   const title = document.getElementById('title-input').value || 'Untitled';
   const blob = new Blob([await serializeToJson()], { type: 'application/json;charset=utf-8' });
   const url = URL.createObjectURL(blob), a = document.createElement('a');
-  a.href = url; a.download = safeFilename(title) + ' — Chronicle.json';
+  a.href = url; a.download = safeFilename(title) + ' — Editor.json';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   showToast('Session file saved — ' + snapshots.length + ' snapshot' + (snapshots.length !== 1 ? 's' : ''));
@@ -1982,6 +2269,7 @@ async function exportBackup() {
 
 function importBackup() { document.getElementById('backup-file-input').click(); }
 
+// ── Import: restore session from file ────────────────────────────────────────
 async function handleBackupFile(file) {
   if (!file) return;
   const reader = new FileReader();
@@ -1991,14 +2279,13 @@ async function handleBackupFile(file) {
     try {
       const parsed = JSON.parse(raw);
       if (parsed.v === 4) { data = await deserializeFromJson(raw); }
-      else { showToast('Not a valid Chronicle v4 session file'); return; }
+      else { showToast('Not a valid session file'); return; }
     } catch (_) { showToast('Could not read file — invalid JSON'); return; }
 
-    // Verifier check
     const vCheck = checkVerifierForLoad(data.vid);
     if (!vCheck.ok) {
       showVerifierError(
-        '<strong>Session mismatch.</strong> This file belongs to a different Chronicle session than your current cache.<br>' +
+        '<strong>Session mismatch.</strong> This file belongs to a different session than your current cache.<br>' +
         'To load it safely: (1) Save your current session via <em>File → Save Session File</em>, ' +
         '(2) <em>File → Clear &amp; Reset</em>, then (3) restore this file again.'
       );
@@ -2014,7 +2301,6 @@ async function handleBackupFile(file) {
     const hasExisting = snapshots.length > 0;
     let mode = 'replace';
     if (hasExisting) {
-      // Word count check for merge
       const localWC  = snapshots.length ? snapshots[snapshots.length - 1].wordCount : 0;
       const fileWC   = data.snapshots.length ? data.snapshots[data.snapshots.length - 1].wordCount : 0;
       const diffPct  = wordCountDiffPct(localWC, fileWC);
@@ -2033,8 +2319,9 @@ async function handleBackupFile(file) {
     const editor = document.getElementById('editor'), titleInput = document.getElementById('title-input');
     if (mode === 'replace') {
       snapshots = data.snapshots;
+      if (Array.isArray(data.unsignedSnapshots)) { unsignedSnapshots = data.unsignedSnapshots; persistUnsignedSnapshots(); }
       editor.value = data.content || (snapshots.length ? snapshots[snapshots.length-1].content : '');
-      if (data.title) { titleInput.value = data.title; document.title = data.title + ' — Chronicle'; }
+      if (data.title) { titleInput.value = data.title; document.title = data.title + ' — Editor'; }
       if (Array.isArray(data.progressSnapshots)) { progressSnapshots = data.progressSnapshots.slice(0, MAX_PROGRESS_SNAPS); updateProgressButton(); }
       if (Array.isArray(data.spaces)) {
         noteSpaceState = data.spaces.map(sp => ({ ...sp, snapshots: [...(sp.snapshots || [])] }));
@@ -2043,10 +2330,12 @@ async function handleBackupFile(file) {
         renderNotesUI();
       }
     } else {
+      // Merge: combine and sort by timestamp; de-dupe exact timestamps
       const merged = [...snapshots, ...data.snapshots].sort((a,b) => a.timestamp - b.timestamp);
       snapshots = merged.filter((s, i) => i === 0 || s.timestamp !== merged[i-1].timestamp);
+      // Note: merged Worker-signed snapshots keep their sigs — no local re-signing
     }
-    await resignChain(snapshots);
+
     if (snapshots.length) lastSnapContent = snapshots[snapshots.length-1].content;
     saveContent(editor.value); saveTitle(titleInput.value); saveSnapshots();
     saveProgressSnapshots();
@@ -2058,10 +2347,23 @@ async function handleBackupFile(file) {
   reader.readAsText(file);
 }
 
-// ═══════════════════════════════════════════════════
-//  UI UPDATES
-// ═══════════════════════════════════════════════════
+// ── View ─────────────────────────────────────────────────────────────────────
+function setView(v) {
+  currentView = v;
+  const ep = document.getElementById('editor-pane'), pp = document.getElementById('preview-pane');
+  const bw = document.getElementById('btn-write'), bp = document.getElementById('btn-preview');
+  if (v === 'write') {
+    ep.classList.remove('hidden'); pp.classList.add('hidden');
+    bw.classList.add('active'); bp.classList.remove('active');
+    document.getElementById('editor').focus();
+  } else {
+    ep.classList.add('hidden'); pp.classList.remove('hidden');
+    bw.classList.remove('active'); bp.classList.add('active');
+    document.getElementById('preview-content').innerHTML = renderMd(document.getElementById('editor').value);
+  }
+}
 
+// ── Status bar ───────────────────────────────────────────────────────────────
 function updateStatusBar() {
   const words = countWords(document.getElementById('editor').value);
   document.getElementById('status-session').textContent = `Session ${currentSessionId()}`;
@@ -2086,10 +2388,6 @@ function blinkSnap() {
   dot.classList.add('active'); setTimeout(() => dot.classList.remove('active'), 1800);
 }
 
-// ═══════════════════════════════════════════════════
-//  EDITOR
-// ═══════════════════════════════════════════════════
-
 function onInput() {
   trackWritingSession();
   const text = document.getElementById('editor').value;
@@ -2099,41 +2397,7 @@ function onInput() {
   if (currentView === 'preview') document.getElementById('preview-content').innerHTML = renderMd(text);
 }
 
-async function doSaveSnapshot(silent) {
-  const text = document.getElementById('editor').value;
-  saveContent(text); lastSaveTime = new Date();
-  if (text.trim() && text !== lastSnapContent) { await takeSnapshot(text, silent); scheduleNextSnapshot(); }
-  updateStatusBar();
-}
-
-function insertFootnote() {
-  const el = document.getElementById('editor'), text = el.value, pos = el.selectionStart;
-  const existing = [...text.matchAll(/\[\^(\d+)\]/g)].map(m => parseInt(m[1]));
-  const n = existing.length ? Math.max(...existing) + 1 : 1;
-  const withDef = text.slice(0, pos) + `[^${n}]` + text.slice(pos) + `\n\n[^${n}]: `;
-  el.value = withDef; el.selectionStart = el.selectionEnd = withDef.length;
-  el.focus(); onInput();
-}
-
-function setView(v) {
-  currentView = v;
-  const ep = document.getElementById('editor-pane'), pp = document.getElementById('preview-pane');
-  const bw = document.getElementById('btn-write'), bp = document.getElementById('btn-preview');
-  if (v === 'write') {
-    ep.classList.remove('hidden'); pp.classList.add('hidden');
-    bw.classList.add('active'); bp.classList.remove('active');
-    document.getElementById('editor').focus();
-  } else {
-    ep.classList.add('hidden'); pp.classList.remove('hidden');
-    bw.classList.remove('active'); bp.classList.add('active');
-    document.getElementById('preview-content').innerHTML = renderMd(document.getElementById('editor').value);
-  }
-}
-
-// ═══════════════════════════════════════════════════
-//  INIT
-// ═══════════════════════════════════════════════════
-
+// ── Init ─────────────────────────────────────────────────────────────────────
 function init() {
   marked.setOptions({ gfm: true, breaks: false });
 
@@ -2141,7 +2405,7 @@ function init() {
   const titleInput  = document.getElementById('title-input');
   const authorInput = document.getElementById('author-input');
 
-  // ── Restore note space state ────────────────────
+  // Restore note space state
   const savedSpaceState = storageGet(K.SPACE_STATE);
   if (savedSpaceState) {
     try {
@@ -2163,16 +2427,32 @@ function init() {
     noteSpaceState[0].exists = true; noteSpaceState[0].open = true;
   }
 
-  // ── Restore progress snapshots ──────────────────
+  // Restore progress snapshots
   const savedProgress = storageGet(K.PROGRESS_SNAPS);
   if (savedProgress) {
     try { const p = JSON.parse(savedProgress); if (Array.isArray(p)) progressSnapshots = p.slice(0, MAX_PROGRESS_SNAPS); } catch(_) {}
   }
 
-  // ── Restore verifier ────────────────────────────
-  sessionVerifier = storageGet(K.VERIFIER); // may be null
+  // Restore unsigned snapshots
+  const savedUnsigned = storageGet(K.UNSIGNED_SNAPS);
+  if (savedUnsigned) {
+    try { const p = JSON.parse(savedUnsigned); if (Array.isArray(p)) unsignedSnapshots = p; } catch(_) {}
+  }
 
-  // ── Restore main content ────────────────────────
+  // Restore failure state (so a reload during an outage doesn't reset the counter)
+  const savedFailCount = parseInt(storageGet(K.FAIL_COUNT));
+  const savedFirstFail = parseInt(storageGet(K.FIRST_FAIL_TIME));
+  if (!isNaN(savedFailCount) && savedFailCount > 0) {
+    consecutiveFailures = savedFailCount;
+    firstFailureTime    = isNaN(savedFirstFail) ? Date.now() : savedFirstFail;
+  }
+
+  // Restore key version
+  const savedKV = storageGet(K.KEY_VERSION);
+  if (savedKV) workerKeyVersion = savedKV;
+
+  sessionVerifier = storageGet(K.VERIFIER);
+
   const savedContent   = loadContent();
   const savedTitle     = loadTitle();
   const savedAuthor    = loadAuthor();
@@ -2200,14 +2480,13 @@ function init() {
   }
 
   lastSaveTime = savedContent ? new Date() : null;
-  if (savedTitle) document.title = savedTitle + ' — Chronicle';
+  if (savedTitle) document.title = savedTitle + ' — Editor';
 
-  // ── Initial UI render ───────────────────────────
   updateStatusBar(); updateProgressButton();
   renderNotesUI();
   scheduleNextSnapshot();
 
-  // 1-second tick
+  // Tick loop: update time-sensitive status bar elements
   setInterval(() => {
     const saveEl = document.getElementById('status-save');
     if (saveEl && lastSaveTime) saveEl.textContent = 'Saved ' + fmtAgo(lastSaveTime);
@@ -2215,13 +2494,17 @@ function init() {
     if (wtEl) { const wt = computeTotalWritingTime(); wtEl.textContent = wt > 0 ? fmtDur(wt) + ' writing' : ''; }
   }, 1000);
 
+  // Worker health check: on load, on reconnect, every 5 min
+  checkWorkerHealth();
+  window.addEventListener('online', checkWorkerHealth);
+  setInterval(checkWorkerHealth, 5 * 60 * 1000);
+
   initSplitResize();
 
-  // ── Editor event listeners ──────────────────────
-  editor.addEventListener('paste', e => { e.preventDefault(); showToast('Pasting is disabled in Chronicle'); });
+  editor.addEventListener('paste', e => { e.preventDefault(); showToast('Pasting is disabled in Editor'); });
   editor.addEventListener('dragstart', () => { _internalDrag = true; });
   editor.addEventListener('dragend', () => { _internalDrag = false; });
-  editor.addEventListener('drop', e => { if (!_internalDrag) { e.preventDefault(); showToast('External drop is disabled in Chronicle'); } });
+  editor.addEventListener('drop', e => { if (!_internalDrag) { e.preventDefault(); showToast('External drop is disabled in Editor'); } });
 
   editor.addEventListener('keydown', e => {
     if (e.key === 'Tab') { e.preventDefault(); const s = editor.selectionStart, en = editor.selectionEnd; editor.value = editor.value.slice(0, s) + '\t' + editor.value.slice(en); editor.selectionStart = editor.selectionEnd = s + 1; onInput(); }
@@ -2248,15 +2531,15 @@ function init() {
     const text = editor.value;
     storageSet(K.CONTENT, LZString.compressToUTF16(text));
     if (text.trim() && text !== lastSnapContent) {
-      snapshots.push({ timestamp: Date.now(), content: text, wordCount: countWords(text), sig: null });
+      // Store unsigned on unload — will be picked up and signed on next session start
+      snapshots.push({ timestamp: Date.now(), content: text, wordCount: countWords(text), sig: null, signed: false, keyVersion: null });
       try { storageSet(K.SNAPSHOTS, LZString.compressToUTF16(JSON.stringify(snapshots))); } catch(_) {}
     }
   });
 
-  titleInput.addEventListener('input', () => { saveTitle(titleInput.value); document.title = (titleInput.value || 'Untitled') + ' — Chronicle'; });
+  titleInput.addEventListener('input', () => { saveTitle(titleInput.value); document.title = (titleInput.value || 'Untitled') + ' — Editor'; });
   authorInput.addEventListener('input', () => saveAuthor(authorInput.value));
 
-  // ── Toolbar buttons ─────────────────────────────
   document.getElementById('btn-write').addEventListener('click', () => setView('write'));
   document.getElementById('btn-preview').addEventListener('click', () => setView('preview'));
   document.getElementById('btn-notes').addEventListener('click', toggleNotes);
@@ -2275,8 +2558,9 @@ function init() {
   exportToggle.addEventListener('click', e => { e.stopPropagation(); exportMenu.classList.toggle('hidden'); });
   document.addEventListener('click', () => exportMenu.classList.add('hidden'));
 
-  document.getElementById('btn-export-combined').addEventListener('click', () => { exportMenu.classList.add('hidden'); exportCombined(); });
-  document.getElementById('btn-export-backup').addEventListener('click', () => { exportMenu.classList.add('hidden'); exportBackup(); });
+  // Export buttons gated behind signing check
+  document.getElementById('btn-export-combined').addEventListener('click', () => { exportMenu.classList.add('hidden'); gatedExport(exportCombined); });
+  document.getElementById('btn-export-backup').addEventListener('click', () => { exportMenu.classList.add('hidden'); gatedExport(exportBackup); });
   document.getElementById('btn-import-backup').addEventListener('click', () => { exportMenu.classList.add('hidden'); importBackup(); });
   document.getElementById('backup-file-input').addEventListener('change', e => { handleBackupFile(e.target.files[0]); e.target.value = ''; });
 
@@ -2286,13 +2570,17 @@ function init() {
       [K.CONTENT, K.TITLE, K.AUTHOR, K.SNAPSHOTS, K.PROGRESS_SNAPS,
        K.NOTES_1, K.NOTES_2, K.NOTES_3,
        K.NSNAPS_1, K.NSNAPS_2, K.NSNAPS_3,
-       K.SPACE_STATE, K.VERIFIER
+       K.SPACE_STATE, K.VERIFIER,
+       K.UNSIGNED_SNAPS, K.FAIL_COUNT, K.FIRST_FAIL_TIME, K.BLOCK_EVENT,
       ].forEach(k => { try { localStorage.removeItem(k); } catch(_) {} });
 
       clearTimeout(snapshotTimerId);
       snapshots = []; lastSnapContent = ''; lastSaveTime = null;
       progressSnapshots = []; sessionVerifier = null;
       sessionCurrentStart = null; sessionCurrentEnd = null;
+      unsignedSnapshots = []; autoSnapsSinceLastSign = 0;
+      consecutiveFailures = 0; firstFailureTime = null;
+      hidePersistentWarning();
 
       noteSpaceState = [
         { slot: 1, exists: true,  open: true,  content: '', snapshots: [] },
@@ -2301,11 +2589,13 @@ function init() {
       ];
 
       editor.value = ''; titleInput.value = ''; authorInput.value = '';
-      document.title = 'Chronicle';
+      editor.disabled = false;
+      document.title = 'Editor';
       fsHandle = null; updateFsIndicator();
       updateStatusBar(); updateProgressButton();
       renderNotesUI(); persistToJson();
       showToast('Reset — fresh document'); scheduleNextSnapshot();
+      checkWorkerHealth();
     }
   });
 
