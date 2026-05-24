@@ -605,11 +605,6 @@ body.split-dragging * { cursor: col-resize !important; }
       <span id="status-writing-time"></span>
       <span id="status-save"></span>
       <span class="ts-sep"></span>
-      <span id="fs-indicator" title="Link JSON session file">
-        <span class="fs-dot"></span>
-        <span id="fs-label">Link file</span>
-      </span>
-      <span class="ts-sep"></span>
       <span id="status-worker" class="worker-indicator" title="Checking signing service…"></span>
     </div>
     <input id="title-input" type="text" placeholder="Untitled" autocomplete="off">
@@ -627,13 +622,14 @@ body.split-dragging * { cursor: col-resize !important; }
       <button class="btn" id="btn-help">?</button>
       <div class="dropdown">
         <button class="btn" id="btn-export-toggle">File ▾</button>
-        <div class="dropdown-menu hidden" id="export-menu">
-          <button id="btn-export-combined">Export Final Document and Report</button>
-          <button id="btn-export-backup">Save Session File</button>
-          <button id="btn-import-backup">Restore Session</button>
-          <div class="menu-sep"></div>
-          <button id="btn-clear" class="danger">⚠ Clear &amp; Reset</button>
-        </div>
+          <div class="dropdown-menu hidden" id="export-menu">
+            <button id="btn-save-cloud">Save to Cloud</button>
+            <button id="btn-export-backup">Save Session File</button>
+            <button id="btn-restore-file">Restore from File…</button>
+            <button id="btn-restore-cloud">Restore from Session ID…</button>
+            <button id="btn-export-combined">Export Final Document and Report</button>
+            <button id="btn-clear" class="danger">⚠ Clear &amp; Reset</button>
+          </div>
       </div>
     </div>
   </header>
