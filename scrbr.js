@@ -43,6 +43,7 @@ const K = {
   FAIL_COUNT:     'chr4_fail_count',
   FIRST_FAIL_TIME:'chr4_first_fail_time',
   BLOCK_EVENT:    'chr4_block_event',
+  VID_CLAIMED:    'chr4_vid_claimed',
 };
 
 function noteContentKey(slot) { return K['NOTES_' + slot]; }
@@ -65,8 +66,7 @@ let notesVisible     = false;
 let autosaveTimer    = null;
 let toastTimer       = null;
 let snapshotTimerId  = null;
-let fsHandle         = null;
-let fsPending        = false;
+let cloudSaveInProgress = false;
 let _hmacKey         = null;
 let _internalDrag    = false;
 let progressSnapshots = [];
@@ -411,69 +411,133 @@ async function deserializeFromJson(jsonStr) {
 function storageSet(key, value) { try { localStorage.setItem(key, value); return true; } catch (_) { return false; } }
 function storageGet(key) { try { return localStorage.getItem(key); } catch (_) { return null; } }
 
-function updateFsIndicator() {
-  const el = document.getElementById('fs-indicator'), lb = document.getElementById('fs-label');
-  if (!el) return;
-  if (fsHandle) {
-    el.classList.add('linked'); lb.textContent = 'Linked: ' + fsHandle.name;
-    el.title = 'Session file linked — every save writes to disk. Click to relink.';
-  } else {
-    el.classList.remove('linked');
-    lb.textContent = window.showSaveFilePicker ? 'Link session file' : 'No FS API';
-  }
-}
+// ── Cloud: claim VID ─────────────────────────────────────────────────────────
+async function claimVidIfNeeded() {
+  if (storageGet(K.VID_CLAIMED) === 'true' && sessionVerifier) return sessionVerifier;
 
-async function linkFile() {
-  if (!window.showSaveFilePicker) { showToast('File System API not supported (use Chrome or Edge)'); return; }
+  const localVid = ensureVerifier();
   try {
-    const handle = await window.showSaveFilePicker({
-      suggestedName: safeFilename(document.getElementById('title-input').value || 'session') + '.json',
-      types: [{ description: 'Editor session file', accept: { 'application/json': ['.json'] } }],
+    const res = await fetch(WORKER_URL + '/claim-id', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ vid: localVid }),
     });
-    const rawText = await (await handle.getFile()).text();
-    if (rawText.trim()) {
-      try {
-        const data = await deserializeFromJson(rawText);
+    if (!res.ok) throw new Error('claim failed');
+    const data = await res.json();
 
-        const vCheck = checkVerifierForLoad(data.vid);
-        if (!vCheck.ok) {
-          showVerifierError(
-            '<strong>Session mismatch.</strong> This file belongs to a different session than your current cache.<br>' +
-            'To load it safely: (1) Save your current session via <em>File → Save Session File</em>, ' +
-            '(2) <em>File → Clear &amp; Reset</em>, then (3) link this file again.'
-          );
-          return;
-        }
-        if (vCheck.ok === 'warn') {
-          if (!confirm('This file has no session ID (older format). Load it anyway?')) return;
-        }
-
-        const msg = data.snapshots.length
-          ? `This file contains ${data.snapshots.length} snapshot${data.snapshots.length !== 1 ? 's' : ''} from "${data.title || 'Untitled'}".\n\nLoad session from this file?`
-          : 'This file appears to be an empty session.\n\nLink it for saving?';
-        if (snapshots.length === 0 || confirm(msg)) {
-          fsHandle = handle; updateFsIndicator(); await loadFromJsonData(data);
-          showToast('Session restored — ' + handle.name); return;
-        }
-      } catch (err) {
-        if (rawText.trim()) showToast('Could not read file');
-      }
+    if (data.vid !== localVid) {
+      sessionVerifier = data.vid;
+      storageSet(K.VERIFIER, sessionVerifier);
     }
-    fsHandle = handle; updateFsIndicator(); await persistToJson();
-    showToast('Session file linked: ' + handle.name);
-  } catch (e) { if (e.name !== 'AbortError') { console.warn('linkFile', e); showToast('Could not link file'); } }
+
+    storageSet(K.VID_CLAIMED, 'true');
+    return sessionVerifier;
+  } catch {
+    return null;
+  }
 }
 
-async function persistToJson() {
-  if (!fsHandle || fsPending) return;
-  fsPending = true; await Promise.resolve(); fsPending = false;
+// ── Cloud: save session ───────────────────────────────────────────────────────
+async function saveToCloud() {
+  if (cloudSaveInProgress) return;
+  cloudSaveInProgress = true;
+  showToast('Saving to cloud…');
+
   try {
-    const w = await fsHandle.createWritable();
-    await w.write(await serializeToJson()); await w.close();
-  } catch (e) {
-    console.warn('persistToJson', e);
-    if (e.name === 'NotAllowedError') { fsHandle = null; updateFsIndicator(); showToast('File permission lost — relink to resume disk saves'); }
+    const vid = await claimVidIfNeeded();
+    if (!vid) {
+      showToast('Could not reach server — try again or save to file');
+      return;
+    }
+
+    const json = await serializeToJson();
+    const res  = await fetch(WORKER_URL + '/session/' + vid, {
+      method:  'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body:    json,
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      showToast('Cloud save failed: ' + (err.error || res.status));
+      return;
+    }
+
+    lastSaveTime = new Date();
+    updateStatusBar();
+    showSessionIdNotice(vid);
+  } catch {
+    showToast('Cloud save failed — check connection');
+  } finally {
+    cloudSaveInProgress = false;
   }
+}
+
+// ── Cloud: restore session ────────────────────────────────────────────────────
+async function restoreFromCloud(vid) {
+  vid = (vid || '').trim();
+  if (!/^\d{10}$/.test(vid)) { showToast('Session IDs are 10 digits'); return; }
+
+  showToast('Fetching session…');
+  try {
+    const res = await fetch(WORKER_URL + '/session/' + vid, { method: 'GET' });
+    if (res.status === 404) { showToast('Session not found — check your ID'); return; }
+    if (!res.ok)            { showToast('Could not reach server'); return; }
+
+    const raw = await res.text();
+    let data;
+    try { data = await deserializeFromJson(raw); }
+    catch { showToast('Session data appears corrupt'); return; }
+
+    const local = storageGet(K.VERIFIER);
+    if (local && local !== vid) {
+      const proceed = confirm(
+        'This session ID does not match your current local session.\n\n' +
+        'Loading it will replace your current local data.\n\n' +
+        'Make sure you have saved your current session first.'
+      );
+      if (!proceed) return;
+    }
+
+    await loadFromJsonData(data);
+
+    sessionVerifier = vid;
+    storageSet(K.VERIFIER, vid);
+    storageSet(K.VID_CLAIMED, 'true');
+    showToast('Session restored from cloud — ' + data.snapshots.length + ' snapshots');
+  } catch {
+    showToast('Restore failed — check connection');
+  }
+}
+
+// ── UI: session ID notice ─────────────────────────────────────────────────────
+function showSessionIdNotice(vid) {
+  const existing = document.getElementById('vid-notice');
+  if (existing) existing.remove();
+
+  const box = document.createElement('div');
+  box.id = 'vid-notice';
+  box.style.cssText = `
+    position:fixed; bottom:60px; left:50%; transform:translateX(-50%);
+    background:var(--accent); color:var(--bg); padding:12px 20px;
+    border-radius:6px; font-family:var(--font-ui); font-size:13px;
+    z-index:999; text-align:center; line-height:1.6; max-width:360px;
+    box-shadow:0 4px 16px rgba(0,0,0,.2);
+  `;
+  box.innerHTML = `
+    Saved to cloud. Your session ID:<br>
+    <strong style="font-size:1.4em;letter-spacing:.08em">${vid}</strong><br>
+    <span style="opacity:.8;font-size:11.5px">Keep this to restore your session from any browser.</span><br>
+    <button id="vid-copy-btn" style="margin-top:8px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:inherit;padding:4px 14px;border-radius:3px;font-family:var(--font-ui);font-size:12px;cursor:pointer">Copy ID</button>
+    <button id="vid-close-btn" style="margin-top:8px;margin-left:6px;background:none;border:1px solid rgba(255,255,255,.3);color:inherit;padding:4px 14px;border-radius:3px;font-family:var(--font-ui);font-size:12px;cursor:pointer">Dismiss</button>
+  `;
+
+  document.body.appendChild(box);
+  document.getElementById('vid-copy-btn').addEventListener('click', () => {
+    navigator.clipboard.writeText(vid).then(() => showToast('Session ID copied'));
+  });
+  document.getElementById('vid-close-btn').addEventListener('click', () => box.remove());
+  setTimeout(() => { if (box.isConnected) box.remove(); }, 20000);
 }
 
 async function loadFromJsonData(data) {
@@ -539,14 +603,13 @@ async function loadFromJsonData(data) {
 function saveContent(text) {
   if (text.trim()) ensureVerifier();
   storageSet(K.CONTENT, LZString.compressToUTF16(text)) || storageSet(K.CONTENT, text);
-  persistToJson();
 }
 function loadContent() { const r = storageGet(K.CONTENT); if (!r) return ''; try { const d = LZString.decompressFromUTF16(r); if (d != null) return d; } catch(_){} return r; }
-function saveSnapshots() { try { storageSet(K.SNAPSHOTS, LZString.compressToUTF16(JSON.stringify(snapshots))); } catch(_){} persistToJson(); }
+function saveSnapshots() { try { storageSet(K.SNAPSHOTS, LZString.compressToUTF16(JSON.stringify(snapshots))); } catch(_){} }
 function loadSnapshots() { const r = storageGet(K.SNAPSHOTS); if (!r) return []; try { const p = JSON.parse(LZString.decompressFromUTF16(r)); return Array.isArray(p) ? p : []; } catch(_){ return []; } }
-function saveTitle(t)    { storageSet(K.TITLE, t); persistToJson(); }
+function saveTitle(t)    { storageSet(K.TITLE, t); }
 function loadTitle()     { return storageGet(K.TITLE) || ''; }
-function saveAuthor(a)   { storageSet(K.AUTHOR, a); persistToJson(); }
+function saveAuthor(a)   { storageSet(K.AUTHOR, a); }
 function loadAuthor()    { return storageGet(K.AUTHOR) || ''; }
 
 function persistUnsignedSnapshots() {
@@ -562,14 +625,12 @@ function saveNoteSpaceContent(slot) {
   const sp = noteSpaceState[slot - 1];
   if (!sp || !sp.exists) return;
   try { storageSet(noteContentKey(slot), LZString.compressToUTF16(sp.content)); } catch(_) { storageSet(noteContentKey(slot), sp.content); }
-  persistToJson();
 }
 
 function saveNoteSpaceSnaps(slot) {
   const sp = noteSpaceState[slot - 1];
   if (!sp) return;
   try { storageSet(noteSnapsKey(slot), JSON.stringify(sp.snapshots)); } catch(_) {}
-  persistToJson();
 }
 
 function updateConnectivityIndicator(state) {
@@ -840,7 +901,6 @@ function clearNoteSpace(slotNum) {
   try { localStorage.removeItem(noteContentKey(slotNum)); } catch(_) {}
   try { localStorage.removeItem(noteSnapsKey(slotNum)); } catch(_) {}
   persistNoteSpaceState();
-  persistToJson();
   renderNotesUI();
   showToast(`Space ${slotNum} cleared`);
 }
@@ -1079,7 +1139,6 @@ function updateProgressButton() {
 
 function saveProgressSnapshots() {
   try { storageSet(K.PROGRESS_SNAPS, JSON.stringify(progressSnapshots)); } catch(_) {}
-  persistToJson();
 }
 
 function takeProgressSnapshot() {
@@ -1813,9 +1872,31 @@ function init() {
   exportToggle.addEventListener('click', e => { e.stopPropagation(); exportMenu.classList.toggle('hidden'); });
   document.addEventListener('click', () => exportMenu.classList.add('hidden'));
 
-  document.getElementById('btn-export-combined').addEventListener('click', () => { exportMenu.classList.add('hidden'); gatedExport(exportCombined); });
-  document.getElementById('btn-export-backup').addEventListener('click', () => { exportMenu.classList.add('hidden'); gatedExport(exportBackup); });
-  document.getElementById('btn-import-backup').addEventListener('click', () => { exportMenu.classList.add('hidden'); importBackup(); });
+  document.getElementById('btn-save-cloud').addEventListener('click', () => {
+    exportMenu.classList.add('hidden');
+    saveToCloud();
+  });
+
+  document.getElementById('btn-export-backup').addEventListener('click', () => {
+    exportMenu.classList.add('hidden');
+    exportBackup();
+  });
+
+  document.getElementById('btn-restore-file').addEventListener('click', () => {
+    exportMenu.classList.add('hidden');
+    importBackup();
+  });
+
+  document.getElementById('btn-restore-cloud').addEventListener('click', () => {
+    exportMenu.classList.add('hidden');
+    const vid = prompt('Enter your 10-digit session ID:');
+    if (vid) restoreFromCloud(vid);
+  });
+
+  document.getElementById('btn-export-combined').addEventListener('click', () => {
+    exportMenu.classList.add('hidden');
+    gatedExport(exportCombined);
+  });
   document.getElementById('backup-file-input').addEventListener('change', e => { handleBackupFile(e.target.files[0]); e.target.value = ''; });
 
   document.getElementById('btn-clear').addEventListener('click', () => {
@@ -1826,6 +1907,7 @@ function init() {
        K.NSNAPS_1, K.NSNAPS_2, K.NSNAPS_3,
        K.SPACE_STATE, K.VERIFIER,
        K.UNSIGNED_SNAPS, K.FAIL_COUNT, K.FIRST_FAIL_TIME, K.BLOCK_EVENT,
+       K.VID_CLAIMED,
       ].forEach(k => { try { localStorage.removeItem(k); } catch(_) {} });
 
       clearTimeout(snapshotTimerId);
@@ -1834,6 +1916,7 @@ function init() {
       sessionCurrentStart = null; sessionCurrentEnd = null;
       unsignedSnapshots = []; autoSnapsSinceLastSign = 0;
       consecutiveFailures = 0; firstFailureTime = null;
+      cloudSaveInProgress = false;
       hidePersistentWarning();
 
       noteSpaceState = [
@@ -1845,16 +1928,13 @@ function init() {
       editor.value = ''; titleInput.value = ''; authorInput.value = '';
       editor.disabled = false;
       document.title = 'Editor';
-      fsHandle = null; updateFsIndicator();
       updateStatusBar(); updateProgressButton();
-      renderNotesUI(); persistToJson();
+      renderNotesUI();
       showToast('Reset — fresh document'); scheduleNextSnapshot();
       checkWorkerHealth();
     }
   });
 
-  updateFsIndicator();
-  document.getElementById('fs-indicator').addEventListener('click', linkFile);
   editor.focus();
 }
 
