@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Editor</title>
+<title>scrbr</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,600;1,8..60,300;1,8..60,400&display=swap" rel="stylesheet">
@@ -141,29 +141,6 @@ html, body {
 }
 #persistent-warning.hidden { display: none; }
 #persistent-warning.non-dismissible { background: #7A1A1A; color: #FFF5F5; }
-
-#fs-indicator {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  cursor: pointer;
-  padding: 2px 5px;
-  border-radius: var(--btn-r);
-  transition: background .12s;
-  user-select: none;
-  font-size: 11px;
-  color: #8A8278;
-}
-#fs-indicator:hover { background: var(--tint); }
-#fs-indicator .fs-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--line);
-  transition: background .3s;
-}
-#fs-indicator.linked .fs-dot { background: #3A8A50; }
-#fs-indicator.linked { color: #3A8A50; }
 
 #title-input {
   flex: 1;
@@ -622,14 +599,14 @@ body.split-dragging * { cursor: col-resize !important; }
       <button class="btn" id="btn-help">?</button>
       <div class="dropdown">
         <button class="btn" id="btn-export-toggle">File ▾</button>
-          <div class="dropdown-menu hidden" id="export-menu">
-            <button id="btn-save-cloud">Save to Cloud</button>
-            <button id="btn-export-backup">Save Session File</button>
-            <button id="btn-restore-file">Restore from File…</button>
-            <button id="btn-restore-cloud">Restore from Session ID…</button>
-            <button id="btn-export-combined">Export Final Document and Report</button>
-            <button id="btn-clear" class="danger">⚠ Clear &amp; Reset</button>
-          </div>
+        <div class="dropdown-menu hidden" id="export-menu">
+          <button id="btn-save-drive">Save to Google Drive</button>
+          <button id="btn-export-backup">Save Session File</button>
+          <button id="btn-restore-file">Restore from File…</button>
+          <button id="btn-restore-drive">Restore from Google Drive…</button>
+          <button id="btn-export-combined">Export Final Document and Report</button>
+          <button id="btn-clear" class="danger">⚠ Clear &amp; Reset</button>
+        </div>
       </div>
     </div>
   </header>
@@ -666,12 +643,12 @@ body.split-dragging * { cursor: col-resize !important; }
 
 <div id="help-overlay" class="hidden">
   <div id="help-box">
-    <h2>Editor</h2>
+    <h2>scrbr</h2>
     <p><strong>Markdown</strong> • Footnotes: <code>[^1]</code> / <code>[^1]: text</code> • <kbd>Ctrl+Shift+F</kbd> inserts footnote.</p>
     <p><strong>Snapshots:</strong> auto every 1.5–3 min, <kbd>Ctrl+S</kbd> manual. Signed by the verification service every 4 snapshots. Up to 5 progress snapshots of your essay.</p>
     <p><strong>Notes pane:</strong> up to 3 separate note spaces, each with up to 5 snapshots. Paste and external drop are disabled.</p>
-    <p><strong>Session identity:</strong> each session file has a unique verifier ID. Linking a file from a different session is blocked to prevent data loss.</p>
-    <p><strong>Link session file:</strong> persistent JSON on disk (File System Access API, Chrome/Edge only).</p>
+    <p><strong>Session identity:</strong> each session file has a unique verifier ID. Loading a file from a different session is blocked to prevent data loss.</p>
+    <p><strong>Storage:</strong> sessions are saved automatically to your browser's private storage (OPFS). Use <em>Save to Google Drive</em> to back up to the cloud.</p>
     <button class="btn" id="help-close">Close</button>
   </div>
 </div>
@@ -679,8 +656,9 @@ body.split-dragging * { cursor: col-resize !important; }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/diff_match_patch/20121119/diff_match_patch.js"></script>
+<!-- Google Identity Services — required for Google Drive cloud save/restore -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="scrbr.js"></script>
-
 
 </body>
 </html>
