@@ -1,19 +1,27 @@
 'use strict';
 
-const SNAP_MIN_MS        = 1.5 * 60 * 1000;   // 90 s
-const SNAP_MAX_MS        = 3   * 60 * 1000;   // 180 s
-const SESSION_GAP        = 15  * 60 * 1000;   // 15 min inactivity
+
+const OPFS_FILENAME    = 'scrbr-session.json';
+const GDRIVE_CLIENT_ID = 'YOUR_CLIENT_ID_HERE.apps.googleusercontent.com';
+const GDRIVE_FILE_NAME = 'scrbr-session.json';
+
+const SNAP_MIN_MS        = 1.5 * 60 * 1000;
+const SNAP_MAX_MS        = 3   * 60 * 1000;
+const SESSION_GAP        = 15  * 60 * 1000;
 const DEBOUNCE_MS        = 600;
 const MAX_NOTE_SNAPS     = 5;
 const MAX_PROGRESS_SNAPS = 5;
 const MAX_NOTE_SPACES    = 3;
 const MIN_SPACE_PCT      = 25;
+const MAX_CHARS_PER_MIN  = 400;
+const MIN_DELETION_RATIO = 0.05;
+const MAX_DELETION_RATIO = 0.60;
 
 const WORKER_URL          = 'https://0476756423.zzcjmd2b7y.workers.dev';
-const SIGN_TRIGGER_COUNT  = 4;    // sign after every N new auto-snapshots
-const FAILURE_WARN_COUNT  = 3;    // consecutive failures before persistent warning
-const FAILURE_BLOCK_COUNT = 10;   // consecutive failures before editing is blocked
-const FAILURE_BLOCK_MS    = 15 * 60 * 1000; // must span at least 15 min to block
+const SIGN_TRIGGER_COUNT  = 4;
+const FAILURE_WARN_COUNT  = 3;
+const FAILURE_BLOCK_COUNT = 10;
+const FAILURE_BLOCK_MS    = 15 * 60 * 1000;
 
 const HMAC_KEY_MATERIAL  = 'chr-snap-integrity-v1-9f4a2e8d-c3b7-41f0-a6d5-7e1b3f829c14';
 const CONTENT_SEED       = 0xC4710D3E;
@@ -43,7 +51,6 @@ const K = {
   FAIL_COUNT:     'chr4_fail_count',
   FIRST_FAIL_TIME:'chr4_first_fail_time',
   BLOCK_EVENT:    'chr4_block_event',
-  VID_CLAIMED:    'chr4_vid_claimed',
 };
 
 function noteContentKey(slot) { return K['NOTES_' + slot]; }
@@ -58,22 +65,21 @@ const COLORS = [
   { bg: '#C8EEF0', line: '#1A8090', name: 'Teal'       },
 ];
 
-let snapshots        = [];
-let lastSnapContent  = '';
-let lastSaveTime     = null;
-let currentView      = 'write';
-let notesVisible     = false;
-let autosaveTimer    = null;
-let toastTimer       = null;
-let snapshotTimerId  = null;
-let cloudSaveInProgress = false;
-let _hmacKey         = null;
-let _internalDrag    = false;
-let progressSnapshots = [];
-let fontSize         = 16;
-let splitNotesWidthPct = 33;
-let isDraggingSplit  = false;
-let sessionVerifier  = null;
+let snapshots           = [];
+let lastSnapContent     = '';
+let lastSaveTime        = null;
+let currentView         = 'write';
+let notesVisible        = false;
+let autosaveTimer       = null;
+let toastTimer          = null;
+let snapshotTimerId     = null;
+let _hmacKey            = null;
+let _internalDrag       = false;
+let progressSnapshots   = [];
+let fontSize            = 16;
+let splitNotesWidthPct  = 33;
+let isDraggingSplit     = false;
+let sessionVerifier     = null;
 let noteSpaceState = [
   { slot: 1, exists: true,  open: true,  content: '', snapshots: [] },
   { slot: 2, exists: false, open: false, content: '', snapshots: [] },
@@ -88,6 +94,150 @@ let consecutiveFailures    = 0;
 let firstFailureTime       = null;
 let workerKeyVersion       = null;
 let signingInProgress      = false;
+let cumulativeWritingMs = 0;
+let lastKeystrokeTime   = null;
+let deletedCount        = 0;   // cumulative chars deleted this document lifetime
+
+let gdriveAccessToken = null;
+let gdriveFileId      = null;
+
+
+async function opfsWrite(jsonString) {
+  try {
+    const root   = await navigator.storage.getDirectory();
+    const handle = await root.getFileHandle(OPFS_FILENAME, { create: true });
+    const writer = await handle.createWritable();
+    await writer.write(jsonString);
+    await writer.close();
+  } catch (err) {
+    console.warn('OPFS write failed:', err);
+  }
+}
+
+async function opfsRead() {
+  try {
+    const root   = await navigator.storage.getDirectory();
+    const handle = await root.getFileHandle(OPFS_FILENAME);
+    const file   = await handle.getFile();
+    return await file.text();
+  } catch {
+    return null; // file does not exist yet
+  }
+}
+
+
+function gdriveAuth(callback) {
+  const client = google.accounts.oauth2.initTokenClient({
+    client_id: GDRIVE_CLIENT_ID,
+    scope:     'https://www.googleapis.com/auth/drive.file',
+    callback:  (response) => {
+      if (response.error) { showToast('Google sign-in failed'); return; }
+      gdriveAccessToken = response.access_token;
+      callback();
+    },
+  });
+  client.requestAccessToken();
+}
+
+async function gdriveFindFile() {
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=name='${GDRIVE_FILE_NAME}' and trashed=false&fields=files(id,name,modifiedTime)`,
+    { headers: { Authorization: 'Bearer ' + gdriveAccessToken } }
+  );
+  const data = await res.json();
+  return data.files && data.files.length > 0 ? data.files[0] : null;
+}
+
+async function gdriveSave() {
+  const json = await serializeToJson();
+  if (!gdriveFileId) {
+    const existing = await gdriveFindFile();
+    if (existing) gdriveFileId = existing.id;
+  }
+  const metadata = { name: GDRIVE_FILE_NAME, mimeType: 'application/json' };
+  const form     = new FormData();
+  form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+  form.append('file',     new Blob([json],                     { type: 'application/json' }));
+  const method = gdriveFileId ? 'PATCH' : 'POST';
+  const url    = gdriveFileId
+    ? `https://www.googleapis.com/upload/drive/v3/files/${gdriveFileId}?uploadType=multipart`
+    : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+  const res  = await fetch(url, { method, headers: { Authorization: 'Bearer ' + gdriveAccessToken }, body: form });
+  const data = await res.json();
+  if (data.id) gdriveFileId = data.id;
+  return res.ok;
+}
+
+async function gdriveRestore() {
+  const file = await gdriveFindFile();
+  if (!file) { showToast('No scrbr session found in your Drive'); return; }
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`,
+    { headers: { Authorization: 'Bearer ' + gdriveAccessToken } }
+  );
+  if (!res.ok) { showToast('Could not read Drive file'); return; }
+  const raw = await res.text();
+  let data;
+  try { data = await deserializeFromJson(raw); }
+  catch { showToast('Drive session data appears corrupt'); return; }
+  await loadFromJsonData(data);
+  opfsWrite(raw).catch(console.warn);
+  showToast('Session restored from Google Drive — ' + data.snapshots.length + ' snapshots');
+}
+
+function triggerGdriveSave() {
+  if (!gdriveAccessToken) {
+    gdriveAuth(async () => {
+      showToast('Saving to Google Drive…');
+      const ok = await gdriveSave();
+      showToast(ok ? 'Saved to Google Drive' : 'Drive save failed');
+    });
+  } else {
+    gdriveSave().then(ok => showToast(ok ? 'Saved to Google Drive' : 'Drive save failed'));
+  }
+}
+
+function triggerGdriveRestore() {
+  if (!gdriveAccessToken) {
+    gdriveAuth(() => gdriveRestore());
+  } else {
+    gdriveRestore();
+  }
+}
+
+
+async function computeTextHash(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return uint8ToBase64(new Uint8Array(buf));
+}
+
+async function computeCommitment(wordCount, charCount, dc, textHash, prevSig) {
+  const raw = `${wordCount}|${charCount}|${dc}|${textHash}|${prevSig}`;
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw));
+  return uint8ToBase64(new Uint8Array(buf));
+}
+
+function checkClientPlausibility(snaps) {
+  for (let i = 1; i < snaps.length; i++) {
+    const gap       = snaps[i].writingTime - snaps[i - 1].writingTime;
+    const charDelta = snaps[i].charCount   - snaps[i - 1].charCount;
+    const minutes   = gap / 60_000;
+    if (minutes > 0 && charDelta > MAX_CHARS_PER_MIN * minutes)
+      throw new Error(`Snapshot ${i}: implausible typing speed (${charDelta} chars in ${Math.round(minutes * 60)}s)`);
+  }
+  if (snaps.length < 2) return;
+  const last          = snaps[snaps.length - 1];
+  const first         = snaps[0];
+  const totalDeleted  = last.deletedCount - first.deletedCount;
+  const totalInserted = totalDeleted + (last.charCount - first.charCount);
+  if (totalInserted > 500) {
+    const ratio = totalDeleted / totalInserted;
+    if (ratio < MIN_DELETION_RATIO)
+      throw new Error(`Deletion ratio ${(ratio * 100).toFixed(1)}% is implausibly low for organic writing`);
+    if (ratio > MAX_DELETION_RATIO)
+      throw new Error(`Deletion ratio ${(ratio * 100).toFixed(1)}% is implausibly high`);
+  }
+}
 
 function generateVerifier() {
   return String(Math.floor(Math.random() * 9000000000) + 1000000000);
@@ -135,9 +285,7 @@ function trackWritingSession() {
     sessionCurrentStart = now;
     sessionCurrentEnd   = now;
   } else {
-    if (now - (sessionCurrentEnd || 0) > SESSION_GAP) {
-      sessionCurrentStart = now;
-    }
+    if (now - (sessionCurrentEnd || 0) > SESSION_GAP) sessionCurrentStart = now;
     sessionCurrentEnd = now;
   }
 }
@@ -145,29 +293,18 @@ function trackWritingSession() {
 function computeTotalWritingTime() {
   const sessions = computeSessions(snapshots);
   let total = sessions.reduce((sum, s) => sum + (s.end - s.start), 0);
-
   if (sessionCurrentStart !== null && sessionCurrentEnd !== null) {
-    const now = Date.now();
-    const isActive = (now - sessionCurrentEnd) < SESSION_GAP;
+    const now        = Date.now();
+    const isActive   = (now - sessionCurrentEnd) < SESSION_GAP;
     const lastSnapTs = snapshots.length > 0 ? snapshots[snapshots.length - 1].timestamp : 0;
-
     if (isActive) {
-      if (sessionCurrentStart > lastSnapTs) {
-        total += now - sessionCurrentStart;
-      } else {
-        total += Math.max(0, now - lastSnapTs);
-      }
+      total += sessionCurrentStart > lastSnapTs ? now - sessionCurrentStart : Math.max(0, now - lastSnapTs);
     } else {
-      if (sessionCurrentStart > lastSnapTs) {
-        total += sessionCurrentEnd - sessionCurrentStart;
-      } else {
-        total += Math.max(0, sessionCurrentEnd - lastSnapTs);
-      }
+      total += sessionCurrentStart > lastSnapTs ? sessionCurrentEnd - sessionCurrentStart : Math.max(0, sessionCurrentEnd - lastSnapTs);
     }
   } else if (snapshots.length === 0 && sessionCurrentStart !== null) {
     total += (sessionCurrentEnd || Date.now()) - sessionCurrentStart;
   }
-
   return total;
 }
 
@@ -184,7 +321,6 @@ function base64ToUint8(b64) {
   for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
   return out;
 }
-
 function deriveXorKey(seed) {
   const km = HMAC_KEY_MATERIAL, key = new Uint8Array(64);
   let s = ((seed >>> 0) ^ 0xDEADBEEF) >>> 0;
@@ -238,24 +374,21 @@ async function signSnapshotLocal(snap, idx, prevSig, rhythm) {
   const k = await getHmacKey(), buf = await crypto.subtle.sign('HMAC', k, snapMsg(snap, idx, prevSig, rhythm));
   return uint8ToBase64(new Uint8Array(buf));
 }
-
 async function verifySnapshot(snap, idx, prevSig, rhythm) {
   if (!snap.sig) return 'unsigned';
-  if (snap.keyVersion) return 'ok';
+  if (snap.keyVersion) return 'ok'; // worker-signed; trust keyVersion
   try {
     const k = await getHmacKey();
     return await crypto.subtle.verify('HMAC', k, base64ToUint8(snap.sig), snapMsg(snap, idx, prevSig, rhythm))
       ? 'ok' : 'tampered';
   } catch (_) { return 'tampered'; }
 }
-
 function computeSessionStarts(snaps, ids) {
   const map = new Map();
   for (let i = 0; i < snaps.length; i++)
     if (!map.has(ids[i])) map.set(ids[i], snaps[i].timestamp);
   return map;
 }
-
 async function verifyAllSnapshots(snaps) {
   if (!snaps.length) return { results: [], tampered: 0, unsigned: 0 };
   const ids = sessionIdsFor(snaps), starts = computeSessionStarts(snaps, ids), results = [];
@@ -265,14 +398,12 @@ async function verifyAllSnapshots(snaps) {
   }
   return { results, tampered: results.filter(r => r === 'tampered').length, unsigned: results.filter(r => r === 'unsigned').length };
 }
-
 async function computeStructuralChecksum(snaps) {
   const n = snaps.length, ft = n ? snaps[0].timestamp : 0, lt = n ? snaps[n-1].timestamp : 0,
         lw = n ? snaps[n-1].wordCount : 0, lg = n ? (snaps[n-1].sig || '') : '';
   const k = await getHmacKey(), buf = await crypto.subtle.sign('HMAC', k, new TextEncoder().encode(`${n}|${ft}|${lt}|${lw}|${lg}`));
   return uint8ToBase64(new Uint8Array(buf));
 }
-
 async function verifyStructuralChecksum(checksum, snaps) {
   if (!checksum) return 'unsigned';
   if (snaps.length && snaps.every(s => s.keyVersion)) return 'ok';
@@ -296,11 +427,16 @@ async function serializeToJson() {
   for (const s of snapshots) {
     const seed = await chainedSeed(s.timestamp, prev);
     obfSnaps.push({
-      ts: s.timestamp, w: s.wordCount,
-      d: obfuscateText(s.content, seed),
-      g: s.sig || null,
-      kv: s.keyVersion || null,
-      signed: s.signed || false,
+      ts:     s.timestamp,
+      wt:     s.writingTime  || 0,
+      w:      s.wordCount,
+      cc:     s.charCount    || 0,
+      dc:     s.deletedCount || 0,
+      cm:     s.commitment   || null,
+      d:      obfuscateText(s.content, seed),
+      g:      s.sig          || null,
+      kv:     s.keyVersion   || null,
+      signed: s.signed       || false,
     });
     prev = s.content;
   }
@@ -351,7 +487,7 @@ async function serializeToJson() {
 
 async function deserializeFromJson(jsonStr) {
   const data = JSON.parse(jsonStr);
-  if (!data || data.v !== 4) throw new Error('not editor v4');
+  if (!data || data.v !== 4) throw new Error('not scrbr v4');
 
   const title   = deobfuscateText(data.t || '', TITLE_SEED);
   const author  = data.a || '';
@@ -361,12 +497,18 @@ async function deserializeFromJson(jsonStr) {
   let prev = '';
   for (const s of data.s || []) {
     const seed = await chainedSeed(s.ts, prev);
-    const c = deobfuscateText(s.d || '', seed);
+    const c    = deobfuscateText(s.d || '', seed);
     snaps.push({
-      timestamp: s.ts, wordCount: s.w, content: c,
-      sig: s.g || null,
-      keyVersion: s.kv || null,
-      signed: s.signed || (s.g ? true : false),
+      timestamp:    s.ts,
+      writingTime:  s.wt  || 0,
+      wordCount:    s.w,
+      charCount:    s.cc  || 0,
+      deletedCount: s.dc  || 0,
+      commitment:   s.cm  || null,
+      content:      c,
+      sig:          s.g   || null,
+      keyVersion:   s.kv  || null,
+      signed:       s.signed || (s.g ? true : false),
     });
     prev = c;
   }
@@ -394,8 +536,7 @@ async function deserializeFromJson(jsonStr) {
   const unsnaps = (data.unsignedSnaps || []).map(u => ({
     timestamp: u.ts, wordCount: u.w,
     content: deobfuscateText(u.d || '', CONTENT_SEED) || u.pt || '',
-    reason: u.reason,
-    takenAt: u.ts,
+    reason: u.reason, takenAt: u.ts,
   }));
 
   return {
@@ -408,156 +549,70 @@ async function deserializeFromJson(jsonStr) {
   };
 }
 
+
 function storageSet(key, value) { try { localStorage.setItem(key, value); return true; } catch (_) { return false; } }
-function storageGet(key) { try { return localStorage.getItem(key); } catch (_) { return null; } }
+function storageGet(key)        { try { return localStorage.getItem(key); } catch (_) { return null; } }
 
-// ── Cloud: claim VID ─────────────────────────────────────────────────────────
-async function claimVidIfNeeded() {
-  if (storageGet(K.VID_CLAIMED) === 'true' && sessionVerifier) return sessionVerifier;
-
-  const localVid = ensureVerifier();
-  try {
-    const res = await fetch(WORKER_URL + '/claim-id', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ vid: localVid }),
-    });
-    if (!res.ok) throw new Error('claim failed');
-    const data = await res.json();
-
-    if (data.vid !== localVid) {
-      sessionVerifier = data.vid;
-      storageSet(K.VERIFIER, sessionVerifier);
-    }
-
-    storageSet(K.VID_CLAIMED, 'true');
-    return sessionVerifier;
-  } catch {
-    return null;
-  }
+function saveContent(text) {
+  if (text.trim()) ensureVerifier();
+  try { localStorage.setItem(K.CONTENT, LZString.compressToUTF16(text)); } catch(_) {}
 }
-
-// ── Cloud: save session ───────────────────────────────────────────────────────
-async function saveToCloud() {
-  if (cloudSaveInProgress) return;
-  cloudSaveInProgress = true;
-  showToast('Saving to cloud…');
-
-  try {
-    const vid = await claimVidIfNeeded();
-    if (!vid) {
-      showToast('Could not reach server — try again or save to file');
-      return;
-    }
-
-    const json = await serializeToJson();
-    const res  = await fetch(WORKER_URL + '/session/' + vid, {
-      method:  'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body:    json,
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      showToast('Cloud save failed: ' + (err.error || res.status));
-      return;
-    }
-
-    lastSaveTime = new Date();
-    updateStatusBar();
-    showSessionIdNotice(vid);
-  } catch {
-    showToast('Cloud save failed — check connection');
-  } finally {
-    cloudSaveInProgress = false;
-  }
+function loadContent() {
+  const r = storageGet(K.CONTENT);
+  if (!r) return '';
+  try { const d = LZString.decompressFromUTF16(r); if (d != null) return d; } catch(_) {}
+  return r;
 }
-
-// ── Cloud: restore session ────────────────────────────────────────────────────
-async function restoreFromCloud(vid) {
-  vid = (vid || '').trim();
-  if (!/^\d{10}$/.test(vid)) { showToast('Session IDs are 10 digits'); return; }
-
-  showToast('Fetching session…');
-  try {
-    const res = await fetch(WORKER_URL + '/session/' + vid, { method: 'GET' });
-    if (res.status === 404) { showToast('Session not found — check your ID'); return; }
-    if (!res.ok)            { showToast('Could not reach server'); return; }
-
-    const raw = await res.text();
-    let data;
-    try { data = await deserializeFromJson(raw); }
-    catch { showToast('Session data appears corrupt'); return; }
-
-    const local = storageGet(K.VERIFIER);
-    if (local && local !== vid) {
-      const proceed = confirm(
-        'This session ID does not match your current local session.\n\n' +
-        'Loading it will replace your current local data.\n\n' +
-        'Make sure you have saved your current session first.'
-      );
-      if (!proceed) return;
-    }
-
-    await loadFromJsonData(data);
-
-    sessionVerifier = vid;
-    storageSet(K.VERIFIER, vid);
-    storageSet(K.VID_CLAIMED, 'true');
-    showToast('Session restored from cloud — ' + data.snapshots.length + ' snapshots');
-  } catch {
-    showToast('Restore failed — check connection');
-  }
+function saveSnapshots() {
+  try { storageSet(K.SNAPSHOTS, LZString.compressToUTF16(JSON.stringify(snapshots))); } catch(_) {}
 }
+function loadSnapshots() {
+  const r = storageGet(K.SNAPSHOTS);
+  if (!r) return [];
+  try { const p = JSON.parse(LZString.decompressFromUTF16(r)); return Array.isArray(p) ? p : []; } catch(_) { return []; }
+}
+function saveTitle(t)  { storageSet(K.TITLE, t); }
+function loadTitle()   { return storageGet(K.TITLE) || ''; }
+function saveAuthor(a) { storageSet(K.AUTHOR, a); }
+function loadAuthor()  { return storageGet(K.AUTHOR) || ''; }
 
-// ── UI: session ID notice ─────────────────────────────────────────────────────
-function showSessionIdNotice(vid) {
-  const existing = document.getElementById('vid-notice');
-  if (existing) existing.remove();
-
-  const box = document.createElement('div');
-  box.id = 'vid-notice';
-  box.style.cssText = `
-    position:fixed; bottom:60px; left:50%; transform:translateX(-50%);
-    background:var(--accent); color:var(--bg); padding:12px 20px;
-    border-radius:6px; font-family:var(--font-ui); font-size:13px;
-    z-index:999; text-align:center; line-height:1.6; max-width:360px;
-    box-shadow:0 4px 16px rgba(0,0,0,.2);
-  `;
-  box.innerHTML = `
-    Saved to cloud. Your session ID:<br>
-    <strong style="font-size:1.4em;letter-spacing:.08em">${vid}</strong><br>
-    <span style="opacity:.8;font-size:11.5px">Keep this to restore your session from any browser.</span><br>
-    <button id="vid-copy-btn" style="margin-top:8px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:inherit;padding:4px 14px;border-radius:3px;font-family:var(--font-ui);font-size:12px;cursor:pointer">Copy ID</button>
-    <button id="vid-close-btn" style="margin-top:8px;margin-left:6px;background:none;border:1px solid rgba(255,255,255,.3);color:inherit;padding:4px 14px;border-radius:3px;font-family:var(--font-ui);font-size:12px;cursor:pointer">Dismiss</button>
-  `;
-
-  document.body.appendChild(box);
-  document.getElementById('vid-copy-btn').addEventListener('click', () => {
-    navigator.clipboard.writeText(vid).then(() => showToast('Session ID copied'));
-  });
-  document.getElementById('vid-close-btn').addEventListener('click', () => box.remove());
-  setTimeout(() => { if (box.isConnected) box.remove(); }, 20000);
+function persistUnsignedSnapshots() {
+  try { storageSet(K.UNSIGNED_SNAPS, JSON.stringify(unsignedSnapshots)); } catch(_) {}
+}
+function persistNoteSpaceState() {
+  storageSet(K.SPACE_STATE, JSON.stringify(noteSpaceState.map(s => ({ exists: s.exists, open: s.open }))));
+}
+function saveNoteSpaceContent(slot) {
+  const sp = noteSpaceState[slot - 1];
+  if (!sp || !sp.exists) return;
+  try { storageSet(noteContentKey(slot), LZString.compressToUTF16(sp.content)); } catch(_) { storageSet(noteContentKey(slot), sp.content); }
+}
+function saveNoteSpaceSnaps(slot) {
+  const sp = noteSpaceState[slot - 1];
+  if (!sp) return;
+  try { storageSet(noteSnapsKey(slot), JSON.stringify(sp.snapshots)); } catch(_) {}
 }
 
 async function loadFromJsonData(data) {
-  const editor     = document.getElementById('editor');
-  const titleInput = document.getElementById('title-input');
-  const authorInput= document.getElementById('author-input');
+  const editor      = document.getElementById('editor');
+  const titleInput  = document.getElementById('title-input');
+  const authorInput = document.getElementById('author-input');
 
   editor.value = data.content; titleInput.value = data.title;
   if (data.author) authorInput.value = data.author;
-  document.title = (data.title || 'Untitled') + ' — Editor';
+  document.title = (data.title || 'Untitled') + ' — scrbr';
 
   snapshots = data.snapshots;
-  if (snapshots.length) lastSnapContent = snapshots[snapshots.length - 1].content;
+  if (snapshots.length) {
+    lastSnapContent = snapshots[snapshots.length - 1].content;
+    cumulativeWritingMs = snapshots[snapshots.length - 1].writingTime || 0;
+  }
   lastSaveTime = new Date();
 
   if (Array.isArray(data.unsignedSnapshots) && data.unsignedSnapshots.length) {
     unsignedSnapshots = data.unsignedSnapshots;
     persistUnsignedSnapshots();
   }
-
   if (data.keyVersion) {
     workerKeyVersion = data.keyVersion;
     storageSet(K.KEY_VERSION, data.keyVersion);
@@ -568,7 +623,8 @@ async function loadFromJsonData(data) {
 
   if (Array.isArray(data.spaces)) {
     noteSpaceState = data.spaces.map(sp => ({ ...sp, snapshots: [...(sp.snapshots || [])] }));
-    while (noteSpaceState.length < 3) noteSpaceState.push({ slot: noteSpaceState.length + 1, exists: false, open: false, content: '', snapshots: [] });
+    while (noteSpaceState.length < 3)
+      noteSpaceState.push({ slot: noteSpaceState.length + 1, exists: false, open: false, content: '', snapshots: [] });
     persistNoteSpaceState();
     noteSpaceState.forEach(sp => {
       if (sp.exists) {
@@ -580,13 +636,9 @@ async function loadFromJsonData(data) {
 
   if (data.vid) { sessionVerifier = data.vid; storageSet(K.VERIFIER, sessionVerifier); }
 
-  storageSet(K.CONTENT, LZString.compressToUTF16(data.content));
-  storageSet(K.TITLE, data.title);
-  if (data.author) storageSet(K.AUTHOR, data.author);
-  try {
-    storageSet(K.SNAPSHOTS, LZString.compressToUTF16(JSON.stringify(snapshots)));
-    storageSet(K.PROGRESS_SNAPS, JSON.stringify(progressSnapshots));
-  } catch (_) {}
+  saveTitle(titleInput.value);
+  if (data.author) saveAuthor(data.author);
+  opfsWrite(await serializeToJson()).catch(console.warn);
 
   applyFontSize(); updateStatusBar(); scheduleNextSnapshot(); renderNotesUI();
 
@@ -598,39 +650,6 @@ async function loadFromJsonData(data) {
   if (schk === 'tampered') issues.push('structure modified');
   if (chain.tampered > 0) issues.push(`${chain.tampered} snapshot${chain.tampered !== 1 ? 's' : ''} altered`);
   if (issues.length) showToast('⚠ Integrity: ' + issues.join(', '));
-}
-
-function saveContent(text) {
-  if (text.trim()) ensureVerifier();
-  storageSet(K.CONTENT, LZString.compressToUTF16(text)) || storageSet(K.CONTENT, text);
-}
-function loadContent() { const r = storageGet(K.CONTENT); if (!r) return ''; try { const d = LZString.decompressFromUTF16(r); if (d != null) return d; } catch(_){} return r; }
-function saveSnapshots() { try { storageSet(K.SNAPSHOTS, LZString.compressToUTF16(JSON.stringify(snapshots))); } catch(_){} }
-function loadSnapshots() { const r = storageGet(K.SNAPSHOTS); if (!r) return []; try { const p = JSON.parse(LZString.decompressFromUTF16(r)); return Array.isArray(p) ? p : []; } catch(_){ return []; } }
-function saveTitle(t)    { storageSet(K.TITLE, t); }
-function loadTitle()     { return storageGet(K.TITLE) || ''; }
-function saveAuthor(a)   { storageSet(K.AUTHOR, a); }
-function loadAuthor()    { return storageGet(K.AUTHOR) || ''; }
-
-function persistUnsignedSnapshots() {
-  try { storageSet(K.UNSIGNED_SNAPS, JSON.stringify(unsignedSnapshots)); } catch(_) {}
-}
-
-function persistNoteSpaceState() {
-  const state = noteSpaceState.map(s => ({ exists: s.exists, open: s.open }));
-  storageSet(K.SPACE_STATE, JSON.stringify(state));
-}
-
-function saveNoteSpaceContent(slot) {
-  const sp = noteSpaceState[slot - 1];
-  if (!sp || !sp.exists) return;
-  try { storageSet(noteContentKey(slot), LZString.compressToUTF16(sp.content)); } catch(_) { storageSet(noteContentKey(slot), sp.content); }
-}
-
-function saveNoteSpaceSnaps(slot) {
-  const sp = noteSpaceState[slot - 1];
-  if (!sp) return;
-  try { storageSet(noteSnapsKey(slot), JSON.stringify(sp.snapshots)); } catch(_) {}
 }
 
 function updateConnectivityIndicator(state) {
@@ -670,22 +689,26 @@ async function triggerBundleSigning(isExport = false) {
     .map((s, i) => ({ ...s, _idx: i }))
     .filter(s => !s.signed);
 
-  if (toSign.length === 0) {
+  if (toSign.length === 0) { signingInProgress = false; return; }
+
+  try {
+    checkClientPlausibility(toSign);
+  } catch (err) {
+    showToast('Plausibility check: ' + err.message);
     signingInProgress = false;
     return;
   }
 
   const lastSignedIdx = snapshots.reduce((best, s, i) => (s.signed ? i : best), -1);
-  const anchorSig = lastSignedIdx >= 0 ? snapshots[lastSignedIdx].sig : 'genesis';
+  const anchorSig     = lastSignedIdx >= 0 ? snapshots[lastSignedIdx].sig : 'genesis';
 
   const payload = {
     sessionId: ensureVerifier(),
     anchorSig,
-    snapshots: toSign.map((s, bundleIdx) => ({
-      index:     s._idx,
-      timestamp: s.timestamp,
-      wordCount: s.wordCount,
-      prevSig:   bundleIdx === 0 ? anchorSig : null,
+    snapshots: toSign.map(s => ({
+      index:       s._idx,
+      writingTime: s.writingTime,
+      commitment:  s.commitment,
     })),
   };
 
@@ -695,17 +718,16 @@ async function triggerBundleSigning(isExport = false) {
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify(payload),
     });
-
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       handleSigningFailure(err.error || 'worker_rejected');
-      moveToUnsigned(toSign, err.error ? 'worker_rejected' : 'worker_rejected');
+      moveToUnsigned(toSign, 'worker_rejected');
     } else {
       const data = await res.json();
       applySignatures(toSign, data.signatures, data.keyVersion);
       autoSnapsSinceLastSign = 0;
       resetFailureState();
-      saveSnapshots();
+      opfsWrite(await serializeToJson()).catch(console.warn);
       persistUnsignedSnapshots();
       updateStatusBar();
     }
@@ -729,34 +751,24 @@ function moveToUnsigned(toSign, reason) {
   const failedIndices = new Set(toSign.map(s => s._idx));
   toSign.forEach(s => {
     unsignedSnapshots.push({
-      timestamp: s.timestamp,
-      wordCount: s.wordCount,
-      content:   s.content,
-      reason,
-      takenAt:   s.timestamp,
+      timestamp: s.timestamp, wordCount: s.wordCount,
+      content: s.content, reason, takenAt: s.timestamp,
     });
   });
   snapshots = snapshots.filter((_, i) => !failedIndices.has(i));
   persistUnsignedSnapshots();
-  saveSnapshots();
+  opfsWrite(serializeToJson()).catch(console.warn);
 }
 
 function handleSigningFailure(reason) {
   consecutiveFailures++;
-
   if (firstFailureTime === null) {
     firstFailureTime = Date.now();
     storageSet(K.FIRST_FAIL_TIME, String(firstFailureTime));
   }
-
   storageSet(K.FAIL_COUNT, String(consecutiveFailures));
-
   const failureDuration = Date.now() - firstFailureTime;
-
-  if (
-    consecutiveFailures >= FAILURE_BLOCK_COUNT &&
-    failureDuration >= FAILURE_BLOCK_MS
-  ) {
+  if (consecutiveFailures >= FAILURE_BLOCK_COUNT && failureDuration >= FAILURE_BLOCK_MS) {
     blockEditing(reason);
     updateConnectivityIndicator('blocked');
   } else if (consecutiveFailures >= FAILURE_WARN_COUNT) {
@@ -773,10 +785,8 @@ function handleSigningFailure(reason) {
 function blockEditing(reason) {
   const editor = document.getElementById('editor');
   if (editor) editor.disabled = true;
-
   const blockEvent = { timestamp: Date.now(), reason, failCount: consecutiveFailures };
   storageSet(K.BLOCK_EVENT, JSON.stringify(blockEvent));
-
   showPersistentWarning(
     '⚠ Editing suspended. The signing service has been unreachable for an extended period. ' +
     'This event has been logged in your session file. Please resolve your connection and reload, ' +
@@ -801,7 +811,6 @@ function showPersistentWarning(message, nonDismissible = false) {
   el.classList.remove('hidden', 'non-dismissible');
   if (nonDismissible) el.classList.add('non-dismissible');
 }
-
 function hidePersistentWarning() {
   const el = document.getElementById('persistent-warning');
   if (el) el.classList.add('hidden');
@@ -809,14 +818,11 @@ function hidePersistentWarning() {
 
 async function gatedExport(exportFn) {
   await triggerBundleSigning(true);
-
   const stillUnsigned = snapshots.filter(s => !s.signed).length;
-
   if (stillUnsigned > 0) {
     showToast('Export blocked: signing service unreachable. Resolve connection first.');
     return;
   }
-
   if (unsignedSnapshots.length > 0) {
     const n = unsignedSnapshots.length;
     const proceed = confirm(
@@ -825,8 +831,17 @@ async function gatedExport(exportFn) {
     );
     if (!proceed) return;
   }
+  await exportFn();
+}
 
-  exportFn();
+async function fetchSigningLog(vid) {
+  if (!vid) return [];
+  try {
+    const res = await fetch(WORKER_URL + '/log/' + vid, { method: 'GET' });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data.entries) ? data.entries : [];
+  } catch { return []; }
 }
 
 function updateNoteSpaceSnapBtn(slot) {
@@ -837,9 +852,9 @@ function updateNoteSpaceSnapBtn(slot) {
   const n = sp.snapshots.length;
   btn.textContent = `Snap ${n}/${MAX_NOTE_SNAPS}`;
   btn.classList.remove('full', 'taken');
-  if (n >= MAX_NOTE_SNAPS) { btn.classList.add('full'); btn.title = `Maximum note snapshots reached (${n}/${MAX_NOTE_SNAPS})`; }
-  else if (n > 0) { btn.classList.add('taken'); btn.title = `${n} note snapshot${n !== 1 ? 's' : ''} saved — click to add another`; }
-  else { btn.title = `Save a note snapshot (max ${MAX_NOTE_SNAPS})`; }
+  if (n >= MAX_NOTE_SNAPS)      { btn.classList.add('full');  btn.title = `Maximum note snapshots reached (${n}/${MAX_NOTE_SNAPS})`; }
+  else if (n > 0)               { btn.classList.add('taken'); btn.title = `${n} note snapshot${n !== 1 ? 's' : ''} saved — click to add another`; }
+  else                          { btn.title = `Save a note snapshot (max ${MAX_NOTE_SNAPS})`; }
 }
 
 function updateNoteSpaceWordCount(slot) {
@@ -864,77 +879,53 @@ function takeNoteSpaceSnapshot(slot) {
 function addNoteSpace() {
   const slot = noteSpaceState.find(s => !s.exists);
   if (!slot) { showToast('Maximum 3 note spaces'); return; }
-  slot.exists = true;
-  slot.open = true;
-  slot.content = '';
-  slot.snapshots = [];
-  persistNoteSpaceState();
-  renderNotesUI();
-  showToast(`Space ${slot.slot} created`);
+  slot.exists = true; slot.open = true; slot.content = ''; slot.snapshots = [];
+  persistNoteSpaceState(); renderNotesUI(); showToast(`Space ${slot.slot} created`);
 }
-
 function openNoteSpace(slotNum) {
   const sp = noteSpaceState[slotNum - 1];
   if (!sp || !sp.exists) return;
-  sp.open = true;
-  persistNoteSpaceState();
-  renderNotesUI();
-  showToast(`Space ${slotNum} reopened`);
+  sp.open = true; persistNoteSpaceState(); renderNotesUI(); showToast(`Space ${slotNum} reopened`);
 }
-
 function closeNoteSpace(slotNum) {
   const sp = noteSpaceState[slotNum - 1];
   if (!sp) return;
-  sp.open = false;
-  persistNoteSpaceState();
-  renderNotesUI();
+  sp.open = false; persistNoteSpaceState(); renderNotesUI();
 }
-
 function clearNoteSpace(slotNum) {
   const sp = noteSpaceState[slotNum - 1];
   if (!sp) return;
   if (!confirm(`Permanently clear Space ${slotNum} and all its snapshots?\n\nThis cannot be undone.`)) return;
-  sp.exists = false;
-  sp.open = false;
-  sp.content = '';
-  sp.snapshots = [];
+  sp.exists = false; sp.open = false; sp.content = ''; sp.snapshots = [];
   try { localStorage.removeItem(noteContentKey(slotNum)); } catch(_) {}
   try { localStorage.removeItem(noteSnapsKey(slotNum)); } catch(_) {}
-  persistNoteSpaceState();
-  renderNotesUI();
-  showToast(`Space ${slotNum} cleared`);
+  persistNoteSpaceState(); renderNotesUI(); showToast(`Space ${slotNum} cleared`);
 }
 
 function showNoteSpaceMenu(btn) {
   closeNoteSpaceMenu();
   const menu = document.getElementById('note-space-menu');
   menu.innerHTML = '';
-
-  const closedSpaces = noteSpaceState.filter(s => s.exists && !s.open);
+  const closedSpaces  = noteSpaceState.filter(s => s.exists && !s.open);
   const totalExisting = noteSpaceState.filter(s => s.exists).length;
-
   closedSpaces.forEach(sp => {
     const item = document.createElement('button');
     item.textContent = `Reopen Space ${sp.slot}`;
     item.addEventListener('click', () => { openNoteSpace(sp.slot); closeNoteSpaceMenu(); });
     menu.appendChild(item);
   });
-
   if (totalExisting < MAX_NOTE_SPACES) {
     const item = document.createElement('button');
     item.textContent = 'New Space';
     item.addEventListener('click', () => { addNoteSpace(); closeNoteSpaceMenu(); });
     menu.appendChild(item);
   }
-
   if (!menu.children.length) return;
-
   const rect = btn.getBoundingClientRect();
-  menu.style.top  = (rect.bottom + 3) + 'px';
+  menu.style.top   = (rect.bottom + 3) + 'px';
   menu.style.right = (window.innerWidth - rect.right) + 'px';
   menu.style.left  = 'auto';
   menu.classList.remove('hidden');
-
   setTimeout(() => {
     const handler = e => {
       if (!menu.contains(e.target) && e.target !== btn) { closeNoteSpaceMenu(); document.removeEventListener('click', handler); }
@@ -942,18 +933,16 @@ function showNoteSpaceMenu(btn) {
     document.addEventListener('click', handler);
   }, 0);
 }
-
 function closeNoteSpaceMenu() {
-  document.getElementById('note-space-menu').classList.add('hidden');
-  document.getElementById('note-space-menu').innerHTML = '';
+  const m = document.getElementById('note-space-menu');
+  m.classList.add('hidden'); m.innerHTML = '';
 }
 
 function renderNotesUI() {
   const tabbar    = document.getElementById('notes-tabbar');
   const spacesRow = document.getElementById('notes-spaces-row');
   if (!tabbar || !spacesRow) return;
-  tabbar.innerHTML = '';
-  spacesRow.innerHTML = '';
+  tabbar.innerHTML = ''; spacesRow.innerHTML = '';
 
   const openSpaces  = noteSpaceState.filter(s => s.exists && s.open);
   const closedCount = noteSpaceState.filter(s => s.exists && !s.open).length;
@@ -963,68 +952,47 @@ function renderNotesUI() {
 
   openSpaces.forEach(sp => {
     const tab = document.createElement('div');
-    tab.className = 'note-tab';
-    tab.dataset.slot = sp.slot;
+    tab.className = 'note-tab'; tab.dataset.slot = sp.slot;
 
-    const label = document.createElement('span');
-    label.className = 'note-tab-label';
-    label.textContent = `Note Space ${sp.slot}`;
-
-    const wc = document.createElement('span');
-    wc.className = 'note-tab-wc';
-    wc.dataset.slot = sp.slot;
-    wc.textContent = countWords(sp.content) + ' w';
+    const label = document.createElement('span'); label.className = 'note-tab-label'; label.textContent = `Note Space ${sp.slot}`;
+    const wc    = document.createElement('span'); wc.className = 'note-tab-wc'; wc.dataset.slot = sp.slot; wc.textContent = countWords(sp.content) + ' w';
 
     const snapBtn = document.createElement('button');
-    snapBtn.className = 'btn note-snap-btn';
-    snapBtn.dataset.slot = sp.slot;
+    snapBtn.className = 'btn note-snap-btn'; snapBtn.dataset.slot = sp.slot;
     const n = sp.snapshots.length;
     snapBtn.textContent = `Snap ${n}/${MAX_NOTE_SNAPS}`;
-    if (n >= MAX_NOTE_SNAPS) { snapBtn.classList.add('full'); snapBtn.title = `Max snapshots reached (${n}/${MAX_NOTE_SNAPS})`; }
-    else if (n > 0) { snapBtn.classList.add('taken'); snapBtn.title = `${n} snapshot${n !== 1 ? 's' : ''} — add another`; }
-    else { snapBtn.title = `Save note snapshot (max ${MAX_NOTE_SNAPS})`; }
+    if (n >= MAX_NOTE_SNAPS)  { snapBtn.classList.add('full');  snapBtn.title = `Max snapshots reached (${n}/${MAX_NOTE_SNAPS})`; }
+    else if (n > 0)           { snapBtn.classList.add('taken'); snapBtn.title = `${n} snapshot${n !== 1 ? 's' : ''} — add another`; }
+    else                      { snapBtn.title = `Save note snapshot (max ${MAX_NOTE_SNAPS})`; }
     snapBtn.addEventListener('click', () => takeNoteSpaceSnapshot(sp.slot));
 
     const closeBtn = document.createElement('button');
-    closeBtn.className = 'note-tab-btn';
-    closeBtn.textContent = '–';
+    closeBtn.className = 'note-tab-btn'; closeBtn.textContent = '–';
     closeBtn.title = `Hide Space ${sp.slot} (content preserved)`;
     closeBtn.addEventListener('click', e => { e.stopPropagation(); closeNoteSpace(sp.slot); });
 
     const clearBtn = document.createElement('button');
-    clearBtn.className = 'note-tab-btn clear-btn';
-    clearBtn.textContent = '×';
+    clearBtn.className = 'note-tab-btn clear-btn'; clearBtn.textContent = '×';
     clearBtn.title = `Clear Space ${sp.slot} permanently`;
     clearBtn.addEventListener('click', e => { e.stopPropagation(); clearNoteSpace(sp.slot); });
 
-    tab.appendChild(label);
-    tab.appendChild(wc);
-    tab.appendChild(snapBtn);
-    tab.appendChild(closeBtn);
-    tab.appendChild(clearBtn);
+    tab.append(label, wc, snapBtn, closeBtn, clearBtn);
     tabbar.appendChild(tab);
 
     const spaceDiv = document.createElement('div');
-    spaceDiv.className = 'note-space';
-    spaceDiv.dataset.slot = sp.slot;
-
+    spaceDiv.className = 'note-space'; spaceDiv.dataset.slot = sp.slot;
     const ta = document.createElement('textarea');
-    ta.className = 'note-space-editor';
-    ta.dataset.slot = sp.slot;
-    ta.spellcheck = true;
-    ta.placeholder = `Space ${sp.slot} notes…`;
-    ta.value = sp.content;
+    ta.className = 'note-space-editor'; ta.dataset.slot = sp.slot;
+    ta.spellcheck = true; ta.placeholder = `Space ${sp.slot} notes…`; ta.value = sp.content;
     ta.style.fontSize = fontSize + 'px';
 
     ta.addEventListener('paste', e => { e.preventDefault(); showToast('Pasting is disabled in Editor'); });
     ta.addEventListener('dragstart', () => { _internalDrag = true; });
-    ta.addEventListener('dragend', () => { _internalDrag = false; });
+    ta.addEventListener('dragend',   () => { _internalDrag = false; });
     ta.addEventListener('drop', e => { if (!_internalDrag) { e.preventDefault(); showToast('External drop is disabled'); } });
-
     ta.addEventListener('keydown', e => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'v') { e.preventDefault(); showToast('Pasting is disabled in Editor'); }
     });
-
     ta.addEventListener('input', () => {
       trackWritingSession();
       sp.content = ta.value;
@@ -1043,26 +1011,20 @@ function renderNotesUI() {
     addBtn.title = 'Add or reopen a note space';
     addBtn.textContent = openSpaces.length === 0 ? 'Open space' : '+';
     addBtn.addEventListener('click', e => { e.stopPropagation(); showNoteSpaceMenu(addBtn); });
-    if (openSpaces.length > 0) {
-      tabbar.querySelector('.note-tab:last-child').appendChild(addBtn);
-    } else {
-      tabbar.appendChild(addBtn);
-    }
+    if (openSpaces.length > 0) tabbar.querySelector('.note-tab:last-child').appendChild(addBtn);
+    else tabbar.appendChild(addBtn);
   }
 
   if (openSpaces.length === 0) {
-    const ph = document.createElement('div');
-    ph.className = 'note-spaces-empty';
-    ph.innerHTML = '<span>No note spaces open.</span>';
-    spacesRow.appendChild(ph);
+    const ph = document.createElement('div'); ph.className = 'note-spaces-empty';
+    ph.innerHTML = '<span>No note spaces open.</span>'; spacesRow.appendChild(ph);
   }
-
   if (notesVisible) enforceNotesPaneWidth();
 }
 
 function enforceNotesPaneWidth() {
   const openCount = noteSpaceState.filter(s => s.exists && s.open).length || 1;
-  const minPct = Math.min(openCount * MIN_SPACE_PCT, 75);
+  const minPct    = Math.min(openCount * MIN_SPACE_PCT, 75);
   if (splitNotesWidthPct < minPct) {
     splitNotesWidthPct = minPct;
     const p = document.getElementById('notes-pane');
@@ -1093,6 +1055,14 @@ function currentSessionId() {
   if (!snapshots.length) return 1;
   const ids = sessionIdsFor(snapshots), lastId = ids[ids.length-1];
   return Date.now() - snapshots[snapshots.length-1].timestamp > SESSION_GAP ? lastId + 1 : lastId;
+}
+
+function getCurrentSessionInterval() {
+  if (!snapshots.length) return Math.round((SNAP_MIN_MS + SNAP_MAX_MS) / 2);
+  const ids = sessionIdsFor(snapshots), sid = ids[ids.length-1];
+  if (Date.now() - snapshots[snapshots.length-1].timestamp > SESSION_GAP)
+    return Math.round((SNAP_MIN_MS + SNAP_MAX_MS) / 2);
+  return deriveInterval(snapshots[ids.findIndex(id => id === sid)].timestamp);
 }
 
 function fmtElapsed(ms) {
@@ -1126,27 +1096,17 @@ function updateProgressButton() {
   const n = progressSnapshots.length;
   if (countEl) countEl.textContent = `(${n}/${MAX_PROGRESS_SNAPS})`;
   btn.classList.remove('full', 'taken');
-  if (n >= MAX_PROGRESS_SNAPS) {
-    btn.classList.add('full');
-    btn.title = `Maximum progress snapshots reached (${n}/${MAX_PROGRESS_SNAPS})`;
-  } else if (n > 0) {
-    btn.classList.add('taken');
-    btn.title = `${n} progress snapshot${n !== 1 ? 's' : ''} saved — click to add another`;
-  } else {
-    btn.title = `Save a progress snapshot (max ${MAX_PROGRESS_SNAPS})`;
-  }
+  if (n >= MAX_PROGRESS_SNAPS)  { btn.classList.add('full');  btn.title = `Maximum progress snapshots reached (${n}/${MAX_PROGRESS_SNAPS})`; }
+  else if (n > 0)               { btn.classList.add('taken'); btn.title = `${n} progress snapshot${n !== 1 ? 's' : ''} saved — click to add another`; }
+  else                          { btn.title = `Save a progress snapshot (max ${MAX_PROGRESS_SNAPS})`; }
 }
-
 function saveProgressSnapshots() {
   try { storageSet(K.PROGRESS_SNAPS, JSON.stringify(progressSnapshots)); } catch(_) {}
 }
-
 function takeProgressSnapshot() {
   const text = document.getElementById('editor').value;
   if (!text.trim()) { showToast('Nothing to snapshot yet'); return; }
-  if (progressSnapshots.length >= MAX_PROGRESS_SNAPS) {
-    showToast(`Maximum progress snapshots reached (${MAX_PROGRESS_SNAPS}/${MAX_PROGRESS_SNAPS})`); return;
-  }
+  if (progressSnapshots.length >= MAX_PROGRESS_SNAPS) { showToast(`Maximum progress snapshots reached (${MAX_PROGRESS_SNAPS}/${MAX_PROGRESS_SNAPS})`); return; }
   const elapsed = computeTotalWritingTime();
   progressSnapshots.push({ text, elapsed, takenAt: Date.now() });
   saveProgressSnapshots();
@@ -1163,7 +1123,7 @@ function applyFontSize() {
 
 function setNotesWidth(pct) {
   const openCount = noteSpaceState.filter(s => s.exists && s.open).length || 1;
-  const minPct = Math.min(openCount * MIN_SPACE_PCT, 75);
+  const minPct    = Math.min(openCount * MIN_SPACE_PCT, 75);
   splitNotesWidthPct = Math.max(minPct, Math.min(75, pct));
   const p = document.getElementById('notes-pane');
   if (p) p.style.width = splitNotesWidthPct + '%';
@@ -1177,20 +1137,14 @@ function toggleNotes() {
     const anyOpen = noteSpaceState.some(s => s.exists && s.open);
     if (!anyOpen) {
       const first = noteSpaceState.find(s => s.exists);
-      if (first) { first.open = true; }
+      if (first) first.open = true;
       else { noteSpaceState[0].exists = true; noteSpaceState[0].open = true; }
-      persistNoteSpaceState();
-      renderNotesUI();
+      persistNoteSpaceState(); renderNotesUI();
     }
-    np.classList.remove('hidden');
-    enforceNotesPaneWidth();
-    np.style.width = splitNotesWidthPct + '%';
-    h.classList.remove('hidden');
-    btn.classList.add('active');
+    np.classList.remove('hidden'); enforceNotesPaneWidth(); np.style.width = splitNotesWidthPct + '%';
+    h.classList.remove('hidden'); btn.classList.add('active');
   } else {
-    np.classList.add('hidden');
-    h.classList.add('hidden');
-    btn.classList.remove('active');
+    np.classList.add('hidden'); h.classList.add('hidden'); btn.classList.remove('active');
   }
 }
 
@@ -1204,13 +1158,6 @@ function initSplitResize() {
   document.addEventListener('touchend', () => { if (isDraggingSplit) { isDraggingSplit = false; handle.classList.remove('dragging'); } });
 }
 
-function getCurrentSessionInterval() {
-  if (!snapshots.length) return Math.round((SNAP_MIN_MS + SNAP_MAX_MS) / 2);
-  const ids = sessionIdsFor(snapshots), sid = ids[ids.length-1];
-  if (Date.now() - snapshots[snapshots.length-1].timestamp > SESSION_GAP) return Math.round((SNAP_MIN_MS + SNAP_MAX_MS) / 2);
-  return deriveInterval(snapshots[ids.findIndex(id => id === sid)].timestamp);
-}
-
 function scheduleNextSnapshot() {
   clearTimeout(snapshotTimerId);
   snapshotTimerId = setTimeout(async () => {
@@ -1221,20 +1168,30 @@ function scheduleNextSnapshot() {
 }
 
 async function takeSnapshot(text, silent) {
+  const prevSig    = snapshots.filter(s => s.signed).pop()?.sig || 'genesis';
+  const wordCount  = countWords(text);
+  const charCount  = text.length;
+  const textHash   = await computeTextHash(text);
+  const commitment = await computeCommitment(wordCount, charCount, deletedCount, textHash, prevSig);
+
   const snap = {
-    timestamp: Date.now(),
-    content:   text,
-    wordCount: countWords(text),
-    sig:       null,
-    signed:    false,
-    keyVersion: null,
+    timestamp:    Date.now(),
+    writingTime:  cumulativeWritingMs,
+    content:      text,
+    wordCount,
+    charCount,
+    deletedCount,
+    commitment,
+    sig:          null,
+    signed:       false,
+    keyVersion:   null,
   };
 
   snapshots.push(snap);
   lastSnapContent = text;
   autoSnapsSinceLastSign++;
 
-  saveSnapshots();
+  opfsWrite(await serializeToJson()).catch(console.warn);
   updateStatusBar();
   if (!silent) blinkSnap();
 
@@ -1245,8 +1202,13 @@ async function takeSnapshot(text, silent) {
 
 async function doSaveSnapshot(silent) {
   const text = document.getElementById('editor').value;
-  saveContent(text); lastSaveTime = new Date();
-  if (text.trim() && text !== lastSnapContent) { await takeSnapshot(text, silent); scheduleNextSnapshot(); }
+  lastSaveTime = new Date();
+  if (text.trim() && text !== lastSnapContent) {
+    await takeSnapshot(text, silent);
+    scheduleNextSnapshot();
+  } else {
+    opfsWrite(await serializeToJson()).catch(console.warn);
+  }
   updateStatusBar();
 }
 
@@ -1425,13 +1387,22 @@ const REPORT_STYLES = `
   .unverified-snap { margin: 0 0 1.5em; }
   .unverified-meta { font-size: 12px; color: #7A5510; font-style: italic; margin: .25em 0 .6em; font-family: 'Source Sans 3', system-ui, sans-serif; }
   .unverified-block { font-family: 'Source Serif 4', Georgia, serif; font-size: 13.5px; line-height: 1.8; background: #FFFDF5; border: 1px solid #C8A84B; border-left: 4px solid #B8922A; border-radius: 0 5px 5px 0; padding: 20px 24px; white-space: pre-wrap; word-break: break-word; }
+  /* Signing events — server-generated, cannot be altered by author */
+  .signing-events-note { font-size: 12.5px; font-style: italic; color: #72695E; margin: .5em 0 1em; font-family: 'Source Sans 3', system-ui, sans-serif; }
+  .signing-event { display: grid; grid-template-columns: 6em 1fr auto; gap: 6px 14px; align-items: start; padding: 10px 14px; border-left: 3px solid #2C4B70; background: #F3F6FB; margin: 0 0 6px; border-radius: 0 4px 4px 0; font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 12.5px; }
+  .se-num  { font-weight: 700; color: #2C4B70; grid-row: 1; }
+  .se-time { color: #1C1A16; grid-row: 1; }
+  .se-kv   { color: #72695E; font-style: italic; grid-row: 1; text-align: right; }
+  .se-snaps{ color: #4A4640; grid-column: 2 / -1; grid-row: 2; }
+  .se-wt   { color: #72695E; grid-column: 2 / -1; grid-row: 3; }
 `;
 
-function exportCombined() {
+async function exportCombined() {
   const title   = document.getElementById('title-input').value || 'Untitled';
   const author  = document.getElementById('author-input').value;
   const content = document.getElementById('editor').value;
   const kv      = workerKeyVersion || storageGet(K.KEY_VERSION);
+  const vid     = sessionVerifier;
 
   const bylineHtml = author ? `<p class="doc-byline">${escHtml(author)}</p>` : '';
   const docHtml    = renderMd(content);
@@ -1468,6 +1439,8 @@ function exportCombined() {
   if (hasUnsn) legend += `<div class="leg-item"><span class="leg-unsn"></span><span><em>Current text — not yet snapshotted</em></span></div>`;
   legend += '</div>';
 
+  const logEntries = await fetchSigningLog(vid);
+
   let reportHtml = '';
   const authorLine = author ? ` · ${escHtml(author)}` : '';
   const kvLine     = kv ? ` · Key ${escHtml(kv)}` : '';
@@ -1480,6 +1453,29 @@ function exportCombined() {
       blockEventHtml = `<div class="block-event-notice"><strong>Editing was suspended</strong> at ${fmtDateTime(bev.timestamp)} due to sustained signing service unavailability (${bev.failCount} consecutive failures). This event was logged automatically.</div>`;
     }
   } catch(_) {}
+
+  let signingEventsHtml = '';
+  if (logEntries.length) {
+    signingEventsHtml += '<h2>Signing Events</h2>';
+    signingEventsHtml += '<p class="signing-events-note">Timestamps below are generated by the signing service at the moment of signing and stored server-side. They cannot be altered by the author and are independent of the session file.</p>';
+    let runningSnaps = 0;
+    logEntries.forEach((entry, i) => {
+      const from = runningSnaps + 1;
+      const to   = runningSnaps + entry.snapshotCount;
+      runningSnaps += entry.snapshotCount;
+      const kvTag = entry.keyVersion ? `<span class="se-kv">Key ${escHtml(entry.keyVersion)}</span>` : '';
+      signingEventsHtml +=
+        `<div class="signing-event">` +
+          `<span class="se-num">Event ${i + 1}</span>` +
+          `<span class="se-time">Signed ${fmtDateTime(entry.signedAt)}</span>` +
+          `${kvTag}` +
+          `<span class="se-snaps">Snapshots ${from}–${to} (${entry.snapshotCount} in this batch)</span>` +
+          `<span class="se-wt">Active writing time covered: ${fmtDur(entry.firstWritingTime)} → ${fmtDur(entry.lastWritingTime)}</span>` +
+        `</div>`;
+    });
+  } else if (vid) {
+    signingEventsHtml = '<h2>Signing Events</h2><p class="signing-events-note">No server-side signing log entries found for this session. This may mean the session has not yet been signed, or log entries have expired.</p>';
+  }
 
   if (snapshots.length) {
     const sessions     = computeSessions(snapshots);
@@ -1526,12 +1522,7 @@ function exportCombined() {
 
     let unverifiedHtml = '';
     if (unsignedSnapshots.length > 0) {
-      const reasonLabels = {
-        network_error:   'Network unreachable',
-        worker_rejected: 'Rejected by signing service',
-        timeout:         'Request timed out',
-        queue_lost:      'Queue lost on reload',
-      };
+      const reasonLabels = { network_error: 'Network unreachable', worker_rejected: 'Rejected by signing service', timeout: 'Request timed out', queue_lost: 'Queue lost on reload' };
       unverifiedHtml = `<h2>Unverified Snapshots</h2>
 <p class="unverified-note">The following snapshots could not be verified by the signing service at the time they were taken, typically due to a network interruption. They are stored separately from the verified chain and do not affect its integrity. Their authenticity should be assessed on the basis of content plausibility in the context of the surrounding verified record.</p>`;
       unsignedSnapshots.forEach((u, i) => {
@@ -1553,6 +1544,7 @@ function exportCombined() {
   </div>
   <h2>Sessions</h2>
   <table class="rtable"><thead><tr><th>#</th><th>Duration</th><th>Snapshots</th><th>Words</th></tr></thead><tbody>${sessionRows}</tbody></table>
+  ${signingEventsHtml}
   ${psnapHtml}${nsnapHtml}
   <h2>Snapshot Timeline</h2>${timeline}
   ${unverifiedHtml}
@@ -1567,6 +1559,7 @@ function exportCombined() {
   <h1>Writing Report</h1>
   <p class="sub">${escHtml(title)}${authorLine} · Generated ${fmtDateTime(Date.now())}${kvLine}</p>
   <p style="color:#72695E;font-style:italic;margin:0 0 2em">No snapshots recorded yet.</p>
+  ${signingEventsHtml}
   <h2>Document with Writing History</h2>
   <p class="cdoc-note">No snapshots taken — all text shown uncolored.</p>
   ${legend}${colored}
@@ -1589,7 +1582,7 @@ async function exportBackup() {
   const title = document.getElementById('title-input').value || 'Untitled';
   const blob = new Blob([await serializeToJson()], { type: 'application/json;charset=utf-8' });
   const url = URL.createObjectURL(blob), a = document.createElement('a');
-  a.href = url; a.download = safeFilename(title) + ' — Editor.json';
+  a.href = url; a.download = safeFilename(title) + ' — scrbr.json';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   showToast('Session file saved — ' + snapshots.length + ' snapshot' + (snapshots.length !== 1 ? 's' : ''));
@@ -1628,10 +1621,9 @@ async function handleBackupFile(file) {
     const hasExisting = snapshots.length > 0;
     let mode = 'replace';
     if (hasExisting) {
-      const localWC  = snapshots.length ? snapshots[snapshots.length - 1].wordCount : 0;
-      const fileWC   = data.snapshots.length ? data.snapshots[data.snapshots.length - 1].wordCount : 0;
-      const diffPct  = wordCountDiffPct(localWC, fileWC);
-
+      const localWC = snapshots.length ? snapshots[snapshots.length - 1].wordCount : 0;
+      const fileWC  = data.snapshots.length ? data.snapshots[data.snapshots.length - 1].wordCount : 0;
+      const diffPct = wordCountDiffPct(localWC, fileWC);
       const wantMerge = confirm(`Backup: ${data.snapshots.length} snapshot${data.snapshots.length !== 1 ? 's' : ''} from "${data.title || 'Untitled'}".\n\nOK → Merge   Cancel → Replace`);
       if (wantMerge) {
         if (diffPct > 0.05) {
@@ -1648,21 +1640,24 @@ async function handleBackupFile(file) {
       snapshots = data.snapshots;
       if (Array.isArray(data.unsignedSnapshots)) { unsignedSnapshots = data.unsignedSnapshots; persistUnsignedSnapshots(); }
       editor.value = data.content || (snapshots.length ? snapshots[snapshots.length-1].content : '');
-      if (data.title) { titleInput.value = data.title; document.title = data.title + ' — Editor'; }
+      if (data.title) { titleInput.value = data.title; document.title = data.title + ' — scrbr'; }
       if (Array.isArray(data.progressSnapshots)) { progressSnapshots = data.progressSnapshots.slice(0, MAX_PROGRESS_SNAPS); updateProgressButton(); }
       if (Array.isArray(data.spaces)) {
         noteSpaceState = data.spaces.map(sp => ({ ...sp, snapshots: [...(sp.snapshots || [])] }));
         while (noteSpaceState.length < 3) noteSpaceState.push({ slot: noteSpaceState.length + 1, exists: false, open: false, content: '', snapshots: [] });
-        persistNoteSpaceState();
-        renderNotesUI();
+        persistNoteSpaceState(); renderNotesUI();
       }
     } else {
       const merged = [...snapshots, ...data.snapshots].sort((a,b) => a.timestamp - b.timestamp);
       snapshots = merged.filter((s, i) => i === 0 || s.timestamp !== merged[i-1].timestamp);
     }
 
-    if (snapshots.length) lastSnapContent = snapshots[snapshots.length-1].content;
-    saveContent(editor.value); saveTitle(titleInput.value); saveSnapshots();
+    if (snapshots.length) {
+      lastSnapContent = snapshots[snapshots.length-1].content;
+      cumulativeWritingMs = snapshots[snapshots.length-1].writingTime || 0;
+    }
+    saveTitle(titleInput.value);
+    opfsWrite(await serializeToJson()).catch(console.warn);
     saveProgressSnapshots();
     updateStatusBar(); updateProgressButton(); scheduleNextSnapshot();
     let msg = (mode === 'replace' ? 'Restored' : 'Merged') + ' — ' + snapshots.length + ' snapshot' + (snapshots.length !== 1 ? 's' : '') + ' total';
@@ -1675,7 +1670,7 @@ async function handleBackupFile(file) {
 function setView(v) {
   currentView = v;
   const ep = document.getElementById('editor-pane'), pp = document.getElementById('preview-pane');
-  const bw = document.getElementById('btn-write'), bp = document.getElementById('btn-preview');
+  const bw = document.getElementById('btn-write'),   bp = document.getElementById('btn-preview');
   if (v === 'write') {
     ep.classList.remove('hidden'); pp.classList.add('hidden');
     bw.classList.add('active'); bp.classList.remove('active');
@@ -1690,11 +1685,9 @@ function setView(v) {
 function updateStatusBar() {
   const words = countWords(document.getElementById('editor').value);
   document.getElementById('status-session').textContent = `Session ${currentSessionId()}`;
-  document.getElementById('status-words').textContent = `${words.toLocaleString()} word${words !== 1 ? 's' : ''}`;
-
-  const wtEl = document.getElementById('status-writing-time');
-  if (wtEl) { const wt = computeTotalWritingTime(); wtEl.textContent = wt > 0 ? fmtDur(wt) + ' writing' : ''; }
-
+  document.getElementById('status-words').textContent   = `${words.toLocaleString()} word${words !== 1 ? 's' : ''}`;
+  const wtEl   = document.getElementById('status-writing-time');
+  if (wtEl)   { const wt = computeTotalWritingTime(); wtEl.textContent = wt > 0 ? fmtDur(wt) + ' writing' : ''; }
   const saveEl = document.getElementById('status-save');
   if (saveEl) saveEl.textContent = lastSaveTime ? 'Saved ' + fmtAgo(lastSaveTime) : '';
 }
@@ -1713,49 +1706,110 @@ function blinkSnap() {
 
 function onInput() {
   trackWritingSession();
+  lastKeystrokeTime = Date.now(); // writing-time timer uses this
   const text = document.getElementById('editor').value;
   clearTimeout(autosaveTimer);
-  autosaveTimer = setTimeout(() => { saveContent(text); lastSaveTime = new Date(); updateStatusBar(); }, DEBOUNCE_MS);
+  autosaveTimer = setTimeout(async () => {
+    opfsWrite(await serializeToJson()).catch(console.warn);
+    lastSaveTime = new Date();
+    updateStatusBar();
+  }, DEBOUNCE_MS);
   updateStatusBar();
-  if (currentView === 'preview') document.getElementById('preview-content').innerHTML = renderMd(text);
+  if (currentView === 'preview')
+    document.getElementById('preview-content').innerHTML = renderMd(text);
 }
 
-function init() {
+async function init() {
   marked.setOptions({ gfm: true, breaks: false });
 
   const editor      = document.getElementById('editor');
   const titleInput  = document.getElementById('title-input');
   const authorInput = document.getElementById('author-input');
 
-  const savedSpaceState = storageGet(K.SPACE_STATE);
-  if (savedSpaceState) {
+  let loadedFromOPFS = false;
+  const opfsRaw = await opfsRead();
+
+  if (opfsRaw) {
     try {
-      const parsed = JSON.parse(savedSpaceState);
-      noteSpaceState = [1, 2, 3].map((slot, i) => {
-        const saved = parsed[i] || { exists: false, open: false };
-        let content = '';
-        const cr = storageGet(noteContentKey(slot));
-        if (cr) { try { content = LZString.decompressFromUTF16(cr) || cr; } catch(_) { content = cr; } }
-        let snaps = [];
-        const sr = storageGet(noteSnapsKey(slot));
-        if (sr) { try { const p = JSON.parse(sr); if (Array.isArray(p)) snaps = p.slice(0, MAX_NOTE_SNAPS); } catch(_) {} }
-        return { slot, exists: !!saved.exists, open: !!saved.open, content, snapshots: snaps };
-      });
-    } catch(_) {
+      const data = await deserializeFromJson(opfsRaw);
+      editor.value = data.content; titleInput.value = data.title;
+      if (data.author) authorInput.value = data.author;
+      document.title = (data.title || 'Untitled') + ' — scrbr';
+      snapshots = data.snapshots;
+      if (snapshots.length) {
+        lastSnapContent     = snapshots[snapshots.length - 1].content;
+        cumulativeWritingMs = snapshots[snapshots.length - 1].writingTime || 0;
+      }
+      progressSnapshots = Array.isArray(data.progressSnapshots) ? data.progressSnapshots.slice(0, MAX_PROGRESS_SNAPS) : [];
+      if (Array.isArray(data.spaces)) {
+        noteSpaceState = data.spaces.map(sp => ({ ...sp, snapshots: [...(sp.snapshots || [])] }));
+        while (noteSpaceState.length < 3)
+          noteSpaceState.push({ slot: noteSpaceState.length + 1, exists: false, open: false, content: '', snapshots: [] });
+      }
+      unsignedSnapshots = Array.isArray(data.unsignedSnapshots) ? data.unsignedSnapshots : [];
+      if (data.keyVersion)  { workerKeyVersion = data.keyVersion; storageSet(K.KEY_VERSION, data.keyVersion); }
+      if (data.vid)         { sessionVerifier  = data.vid; storageSet(K.VERIFIER, sessionVerifier); }
+      lastSaveTime    = new Date();
+      loadedFromOPFS  = true;
+    } catch (err) {
+      console.warn('OPFS data could not be loaded, falling back to localStorage:', err);
+    }
+  }
+
+  if (!loadedFromOPFS) {
+    const savedSpaceState = storageGet(K.SPACE_STATE);
+    if (savedSpaceState) {
+      try {
+        const parsed = JSON.parse(savedSpaceState);
+        noteSpaceState = [1, 2, 3].map((slot, i) => {
+          const saved = parsed[i] || { exists: false, open: false };
+          let content = '';
+          const cr = storageGet(noteContentKey(slot));
+          if (cr) { try { content = LZString.decompressFromUTF16(cr) || cr; } catch(_) { content = cr; } }
+          let snaps = [];
+          const sr = storageGet(noteSnapsKey(slot));
+          if (sr) { try { const p = JSON.parse(sr); if (Array.isArray(p)) snaps = p.slice(0, MAX_NOTE_SNAPS); } catch(_) {} }
+          return { slot, exists: !!saved.exists, open: !!saved.open, content, snapshots: snaps };
+        });
+      } catch(_) { noteSpaceState[0].exists = true; noteSpaceState[0].open = true; }
+    } else {
       noteSpaceState[0].exists = true; noteSpaceState[0].open = true;
     }
-  } else {
-    noteSpaceState[0].exists = true; noteSpaceState[0].open = true;
-  }
 
-  const savedProgress = storageGet(K.PROGRESS_SNAPS);
-  if (savedProgress) {
-    try { const p = JSON.parse(savedProgress); if (Array.isArray(p)) progressSnapshots = p.slice(0, MAX_PROGRESS_SNAPS); } catch(_) {}
-  }
+    const savedProgress = storageGet(K.PROGRESS_SNAPS);
+    if (savedProgress) {
+      try { const p = JSON.parse(savedProgress); if (Array.isArray(p)) progressSnapshots = p.slice(0, MAX_PROGRESS_SNAPS); } catch(_) {}
+    }
+    const savedUnsigned = storageGet(K.UNSIGNED_SNAPS);
+    if (savedUnsigned) {
+      try { const p = JSON.parse(savedUnsigned); if (Array.isArray(p)) unsignedSnapshots = p; } catch(_) {}
+    }
 
-  const savedUnsigned = storageGet(K.UNSIGNED_SNAPS);
-  if (savedUnsigned) {
-    try { const p = JSON.parse(savedUnsigned); if (Array.isArray(p)) unsignedSnapshots = p; } catch(_) {}
+    const savedContent   = loadContent();
+    const savedTitle     = loadTitle();
+    const savedAuthor    = loadAuthor();
+    const savedSnapshots = loadSnapshots();
+
+    if (savedContent)   editor.value      = savedContent;
+    if (savedTitle)     titleInput.value  = savedTitle;
+    if (savedAuthor)    authorInput.value = savedAuthor;
+
+    if (savedSnapshots.length) {
+      snapshots = savedSnapshots;
+      lastSnapContent     = savedSnapshots[savedSnapshots.length - 1].content;
+      cumulativeWritingMs = savedSnapshots[savedSnapshots.length - 1].writingTime || 0;
+    }
+
+    if (savedContent || savedSnapshots.length) {
+      opfsWrite(await serializeToJson()).then(() => {
+        [K.CONTENT, K.SNAPSHOTS, K.PROGRESS_SNAPS,
+         K.NOTES_1, K.NOTES_2, K.NOTES_3,
+         K.NSNAPS_1, K.NSNAPS_2, K.NSNAPS_3,
+        ].forEach(k => { try { localStorage.removeItem(k); } catch(_) {} });
+      }).catch(console.warn);
+    }
+
+    lastSaveTime = savedContent ? new Date() : null;
   }
 
   const savedFailCount = parseInt(storageGet(K.FAIL_COUNT));
@@ -1768,16 +1822,7 @@ function init() {
   const savedKV = storageGet(K.KEY_VERSION);
   if (savedKV) workerKeyVersion = savedKV;
 
-  sessionVerifier = storageGet(K.VERIFIER);
-
-  const savedContent   = loadContent();
-  const savedTitle     = loadTitle();
-  const savedAuthor    = loadAuthor();
-  const savedSnapshots = loadSnapshots();
-
-  if (savedContent)   editor.value      = savedContent;
-  if (savedTitle)     titleInput.value  = savedTitle;
-  if (savedAuthor)    authorInput.value = savedAuthor;
+  if (!sessionVerifier) sessionVerifier = storageGet(K.VERIFIER);
 
   const sf = parseInt(storageGet(K.FONT_SIZE));
   if (!isNaN(sf) && sf >= 12 && sf <= 26) fontSize = sf;
@@ -1786,29 +1831,33 @@ function init() {
   const sp = parseFloat(storageGet(K.SPLIT_PCT));
   if (!isNaN(sp) && sp >= 25 && sp <= 75) splitNotesWidthPct = sp;
 
-  if (savedSnapshots.length) {
-    snapshots = savedSnapshots;
-    lastSnapContent = savedSnapshots[savedSnapshots.length-1].content;
+  if (titleInput.value) document.title = titleInput.value + ' — scrbr';
+
+  if (snapshots.length) {
     const banner = document.getElementById('restored-banner');
-    banner.textContent = `Restored — ${snapshots.length} snapshot${snapshots.length !== 1 ? 's' : ''} from previous session`;
-    banner.classList.remove('hidden');
-    setTimeout(() => { banner.style.opacity = '0'; setTimeout(() => banner.classList.add('hidden'), 600); }, 4000);
-    verifyAllSnapshots(snapshots).then(({ tampered }) => { if (tampered > 0) showToast(`⚠ ${tampered} snapshot${tampered !== 1 ? 's' : ''} failed integrity check`); });
+    if (banner) {
+      banner.textContent = `Restored — ${snapshots.length} snapshot${snapshots.length !== 1 ? 's' : ''} from previous session`;
+      banner.classList.remove('hidden');
+      setTimeout(() => { banner.style.opacity = '0'; setTimeout(() => banner.classList.add('hidden'), 600); }, 4000);
+    }
+    verifyAllSnapshots(snapshots).then(({ tampered }) => {
+      if (tampered > 0) showToast(`⚠ ${tampered} snapshot${tampered !== 1 ? 's' : ''} failed integrity check`);
+    });
   }
 
-  lastSaveTime = savedContent ? new Date() : null;
-  if (savedTitle) document.title = savedTitle + ' — Editor';
-
-  updateStatusBar(); updateProgressButton();
-  renderNotesUI();
-  scheduleNextSnapshot();
-
   setInterval(() => {
+    if (lastKeystrokeTime && Date.now() - lastKeystrokeTime < 5000) {
+      cumulativeWritingMs += 1000;
+    }
     const saveEl = document.getElementById('status-save');
     if (saveEl && lastSaveTime) saveEl.textContent = 'Saved ' + fmtAgo(lastSaveTime);
     const wtEl = document.getElementById('status-writing-time');
     if (wtEl) { const wt = computeTotalWritingTime(); wtEl.textContent = wt > 0 ? fmtDur(wt) + ' writing' : ''; }
   }, 1000);
+
+  updateStatusBar(); updateProgressButton();
+  renderNotesUI();
+  scheduleNextSnapshot();
 
   checkWorkerHealth();
   window.addEventListener('online', checkWorkerHealth);
@@ -1818,40 +1867,70 @@ function init() {
 
   editor.addEventListener('paste', e => { e.preventDefault(); showToast('Pasting is disabled in Editor'); });
   editor.addEventListener('dragstart', () => { _internalDrag = true; });
-  editor.addEventListener('dragend', () => { _internalDrag = false; });
+  editor.addEventListener('dragend',   () => { _internalDrag = false; });
   editor.addEventListener('drop', e => { if (!_internalDrag) { e.preventDefault(); showToast('External drop is disabled in Editor'); } });
 
   editor.addEventListener('keydown', e => {
-    if (e.key === 'Tab') { e.preventDefault(); const s = editor.selectionStart, en = editor.selectionEnd; editor.value = editor.value.slice(0, s) + '\t' + editor.value.slice(en); editor.selectionStart = editor.selectionEnd = s + 1; onInput(); }
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const s = editor.selectionStart, en = editor.selectionEnd;
+      editor.value = editor.value.slice(0, s) + '\t' + editor.value.slice(en);
+      editor.selectionStart = editor.selectionEnd = s + 1;
+      onInput();
+    }
+    if (e.key === 'Backspace' || e.key === 'Delete') {
+      const selLen = Math.abs(editor.selectionEnd - editor.selectionStart);
+      deletedCount += selLen > 0 ? selLen : 1;
+    }
+  });
+
+  editor.addEventListener('cut', () => {
+    const selLen = Math.abs(editor.selectionEnd - editor.selectionStart);
+    if (selLen > 0) deletedCount += selLen;
   });
 
   document.addEventListener('keydown', e => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); doSaveSnapshot(false); }
-    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'F') { e.preventDefault(); insertFootnote(); }
-    if (e.key === 'Escape') { document.getElementById('export-menu').classList.add('hidden'); document.getElementById('help-overlay').classList.add('hidden'); closeNoteSpaceMenu(); }
+    if ((e.ctrlKey || e.metaKey) && e.key === 's')                    { e.preventDefault(); doSaveSnapshot(false); }
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'F')      { e.preventDefault(); insertFootnote(); }
+    if (e.key === 'Escape') {
+      document.getElementById('export-menu').classList.add('hidden');
+      document.getElementById('help-overlay').classList.add('hidden');
+      closeNoteSpaceMenu();
+    }
   });
 
   editor.addEventListener('input', onInput);
-  editor.addEventListener('blur', () => { saveContent(editor.value); lastSaveTime = new Date(); updateStatusBar(); });
+  editor.addEventListener('blur', async () => {
+    opfsWrite(await serializeToJson()).catch(console.warn);
+    lastSaveTime = new Date(); updateStatusBar();
+  });
 
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
-      saveContent(editor.value); lastSaveTime = new Date();
       const text = editor.value;
+      saveContent(text);
       if (text.trim() && text !== lastSnapContent) takeSnapshot(text, true);
     }
   });
 
   window.addEventListener('beforeunload', () => {
     const text = editor.value;
-    storageSet(K.CONTENT, LZString.compressToUTF16(text));
+    saveContent(text);
     if (text.trim() && text !== lastSnapContent) {
-      snapshots.push({ timestamp: Date.now(), content: text, wordCount: countWords(text), sig: null, signed: false, keyVersion: null });
+      snapshots.push({
+        timestamp: Date.now(), writingTime: cumulativeWritingMs,
+        content: text, wordCount: countWords(text),
+        charCount: text.length, deletedCount,
+        commitment: null, sig: null, signed: false, keyVersion: null,
+      });
       try { storageSet(K.SNAPSHOTS, LZString.compressToUTF16(JSON.stringify(snapshots))); } catch(_) {}
     }
   });
 
-  titleInput.addEventListener('input', () => { saveTitle(titleInput.value); document.title = (titleInput.value || 'Untitled') + ' — Editor'; });
+  titleInput.addEventListener('input', () => {
+    saveTitle(titleInput.value);
+    document.title = (titleInput.value || 'Untitled') + ' — scrbr';
+  });
   authorInput.addEventListener('input', () => saveAuthor(authorInput.value));
 
   document.getElementById('btn-write').addEventListener('click', () => setView('write'));
@@ -1859,45 +1938,49 @@ function init() {
   document.getElementById('btn-notes').addEventListener('click', toggleNotes);
 
   document.getElementById('btn-sz-down').addEventListener('click', () => { fontSize = Math.max(12, fontSize - 1); applyFontSize(); showToast(`Font size ${fontSize}px`); });
-  document.getElementById('btn-sz-up').addEventListener('click', () => { fontSize = Math.min(26, fontSize + 1); applyFontSize(); showToast(`Font size ${fontSize}px`); });
+  document.getElementById('btn-sz-up').addEventListener('click', () =>   { fontSize = Math.min(26, fontSize + 1); applyFontSize(); showToast(`Font size ${fontSize}px`); });
 
   document.getElementById('btn-fn').addEventListener('click', insertFootnote);
   document.getElementById('btn-progress-snap').addEventListener('click', takeProgressSnapshot);
 
   document.getElementById('btn-help').addEventListener('click', () => document.getElementById('help-overlay').classList.remove('hidden'));
   document.getElementById('help-close').addEventListener('click', () => document.getElementById('help-overlay').classList.add('hidden'));
-  document.getElementById('help-overlay').addEventListener('click', e => { if (e.target === document.getElementById('help-overlay')) document.getElementById('help-overlay').classList.add('hidden'); });
+  document.getElementById('help-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('help-overlay'))
+      document.getElementById('help-overlay').classList.add('hidden');
+  });
 
-  const exportToggle = document.getElementById('btn-export-toggle'), exportMenu = document.getElementById('export-menu');
+  const exportToggle = document.getElementById('btn-export-toggle');
+  const exportMenu   = document.getElementById('export-menu');
   exportToggle.addEventListener('click', e => { e.stopPropagation(); exportMenu.classList.toggle('hidden'); });
   document.addEventListener('click', () => exportMenu.classList.add('hidden'));
 
-  document.getElementById('btn-save-cloud').addEventListener('click', () => {
+  const btnSaveDrive = document.getElementById('btn-save-drive');
+  if (btnSaveDrive) btnSaveDrive.addEventListener('click', () => {
     exportMenu.classList.add('hidden');
-    saveToCloud();
+    triggerGdriveSave();
+  });
+  const btnRestoreDrive = document.getElementById('btn-restore-drive');
+  if (btnRestoreDrive) btnRestoreDrive.addEventListener('click', () => {
+    exportMenu.classList.add('hidden');
+    triggerGdriveRestore();
   });
 
   document.getElementById('btn-export-backup').addEventListener('click', () => {
     exportMenu.classList.add('hidden');
     exportBackup();
   });
-
   document.getElementById('btn-restore-file').addEventListener('click', () => {
     exportMenu.classList.add('hidden');
     importBackup();
   });
-
-  document.getElementById('btn-restore-cloud').addEventListener('click', () => {
-    exportMenu.classList.add('hidden');
-    const vid = prompt('Enter your 10-digit session ID:');
-    if (vid) restoreFromCloud(vid);
-  });
-
   document.getElementById('btn-export-combined').addEventListener('click', () => {
     exportMenu.classList.add('hidden');
     gatedExport(exportCombined);
   });
-  document.getElementById('backup-file-input').addEventListener('change', e => { handleBackupFile(e.target.files[0]); e.target.value = ''; });
+  document.getElementById('backup-file-input').addEventListener('change', e => {
+    handleBackupFile(e.target.files[0]); e.target.value = '';
+  });
 
   document.getElementById('btn-clear').addEventListener('click', () => {
     exportMenu.classList.add('hidden');
@@ -1907,8 +1990,9 @@ function init() {
        K.NSNAPS_1, K.NSNAPS_2, K.NSNAPS_3,
        K.SPACE_STATE, K.VERIFIER,
        K.UNSIGNED_SNAPS, K.FAIL_COUNT, K.FIRST_FAIL_TIME, K.BLOCK_EVENT,
-       K.VID_CLAIMED,
       ].forEach(k => { try { localStorage.removeItem(k); } catch(_) {} });
+
+      opfsWrite('').catch(console.warn);
 
       clearTimeout(snapshotTimerId);
       snapshots = []; lastSnapContent = ''; lastSaveTime = null;
@@ -1916,7 +2000,8 @@ function init() {
       sessionCurrentStart = null; sessionCurrentEnd = null;
       unsignedSnapshots = []; autoSnapsSinceLastSign = 0;
       consecutiveFailures = 0; firstFailureTime = null;
-      cloudSaveInProgress = false;
+      cumulativeWritingMs = 0; lastKeystrokeTime = null; deletedCount = 0;
+      gdriveFileId = null;
       hidePersistentWarning();
 
       noteSpaceState = [
@@ -1927,10 +2012,11 @@ function init() {
 
       editor.value = ''; titleInput.value = ''; authorInput.value = '';
       editor.disabled = false;
-      document.title = 'Editor';
+      document.title = 'scrbr';
       updateStatusBar(); updateProgressButton();
       renderNotesUI();
-      showToast('Reset — fresh document'); scheduleNextSnapshot();
+      showToast('Reset — fresh document');
+      scheduleNextSnapshot();
       checkWorkerHealth();
     }
   });
