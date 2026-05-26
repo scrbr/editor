@@ -600,10 +600,8 @@ body.split-dragging * { cursor: col-resize !important; }
       <div class="dropdown">
         <button class="btn" id="btn-export-toggle">File ▾</button>
         <div class="dropdown-menu hidden" id="export-menu">
-          <button id="btn-save-drive">Save to Google Drive</button>
           <button id="btn-export-backup">Save Session File</button>
-          <button id="btn-restore-file">Restore from File…</button>
-          <button id="btn-restore-drive">Restore from Google Drive…</button>
+          <button id="btn-restore-file">Restore from Session File</button>
           <button id="btn-export-combined">Export Final Document and Report</button>
           <button id="btn-clear" class="danger">⚠ Clear &amp; Reset</button>
         </div>
@@ -656,8 +654,6 @@ body.split-dragging * { cursor: col-resize !important; }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/diff_match_patch/20121119/diff_match_patch.js"></script>
-<!-- Google Identity Services — required for Google Drive cloud save/restore -->
-<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="scrbr.js"></script>
 <script src="report.js"></script>  
 
