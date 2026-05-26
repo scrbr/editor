@@ -1,8 +1,6 @@
 'use strict';
 
 const OPFS_FILENAME    = 'scrbr-session.json';
-const GDRIVE_CLIENT_ID = 'YOUR_CLIENT_ID_HERE.apps.googleusercontent.com';
-const GDRIVE_FILE_NAME = 'scrbr-session.json';
 
 const SNAP_MIN_MS        = 1.5 * 60 * 1000;  // 90 s
 const SNAP_MAX_MS        = 3   * 60 * 1000;  // 180 s
@@ -99,9 +97,6 @@ let lastKeystrokeTime      = null;
 let deletedCount           = 0;
 let nextColorIndex         = 0;  
 
-let gdriveAccessToken = null;
-let gdriveFileId      = null;
-
 async function opfsWrite(jsonString) {
   try {
     const root   = await navigator.storage.getDirectory();
@@ -133,83 +128,6 @@ async function fetchWithTimeout(url, options = {}, ms = FETCH_TIMEOUT_MS) {
   } finally {
     clearTimeout(timer);
   }
-}
-
-
-function gdriveAuth(callback) {
-  const client = google.accounts.oauth2.initTokenClient({
-    client_id: GDRIVE_CLIENT_ID,
-    scope:     'https://www.googleapis.com/auth/drive.file',
-    callback:  (response) => {
-      if (response.error) { showToast('Google sign-in failed'); return; }
-      gdriveAccessToken = response.access_token;
-      callback();
-    },
-  });
-  client.requestAccessToken();
-}
-
-async function gdriveFindFile() {
-  const res = await fetch(
-    `https://www.googleapis.com/drive/v3/files?q=name='${GDRIVE_FILE_NAME}' and trashed=false&fields=files(id,name,modifiedTime)`,
-    { headers: { Authorization: 'Bearer ' + gdriveAccessToken } }
-  );
-  const data = await res.json();
-  return data.files && data.files.length > 0 ? data.files[0] : null;
-}
-
-async function gdriveSave() {
-  const json = await serializeToJson();
-  if (!gdriveFileId) {
-    const existing = await gdriveFindFile();
-    if (existing) gdriveFileId = existing.id;
-  }
-  const metadata = { name: GDRIVE_FILE_NAME, mimeType: 'application/json' };
-  const form     = new FormData();
-  form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-  form.append('file',     new Blob([json],                     { type: 'application/json' }));
-  const method = gdriveFileId ? 'PATCH' : 'POST';
-  const url    = gdriveFileId
-    ? `https://www.googleapis.com/upload/drive/v3/files/${gdriveFileId}?uploadType=multipart`
-    : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
-  const res  = await fetch(url, { method, headers: { Authorization: 'Bearer ' + gdriveAccessToken }, body: form });
-  const data = await res.json();
-  if (data.id) gdriveFileId = data.id;
-  return res.ok;
-}
-
-async function gdriveRestore() {
-  const file = await gdriveFindFile();
-  if (!file) { showToast('No scrbr session found in your Drive'); return; }
-  const res = await fetch(
-    `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`,
-    { headers: { Authorization: 'Bearer ' + gdriveAccessToken } }
-  );
-  if (!res.ok) { showToast('Could not read Drive file'); return; }
-  const raw = await res.text();
-  let data;
-  try { data = await deserializeFromJson(raw); }
-  catch { showToast('Drive session data appears corrupt'); return; }
-  await loadFromJsonData(data);
-  opfsWrite(raw).catch(console.warn);
-  showToast('Session restored from Google Drive — ' + data.snapshots.length + ' snapshots');
-}
-
-function triggerGdriveSave() {
-  if (!gdriveAccessToken) {
-    gdriveAuth(async () => {
-      showToast('Saving to Google Drive…');
-      const ok = await gdriveSave();
-      showToast(ok ? 'Saved to Google Drive' : 'Drive save failed');
-    });
-  } else {
-    gdriveSave().then(ok => showToast(ok ? 'Saved to Google Drive' : 'Drive save failed'));
-  }
-}
-
-function triggerGdriveRestore() {
-  if (!gdriveAccessToken) gdriveAuth(() => gdriveRestore());
-  else gdriveRestore();
 }
 
 async function computeTextHash(text) {
@@ -1677,11 +1595,6 @@ async function init() {
   exportToggle.addEventListener('click', e => { e.stopPropagation(); exportMenu.classList.toggle('hidden'); });
   document.addEventListener('click', () => exportMenu.classList.add('hidden'));
 
-  const btnSaveDrive = document.getElementById('btn-save-drive');
-  if (btnSaveDrive) btnSaveDrive.addEventListener('click', () => { exportMenu.classList.add('hidden'); triggerGdriveSave(); });
-  const btnRestoreDrive = document.getElementById('btn-restore-drive');
-  if (btnRestoreDrive) btnRestoreDrive.addEventListener('click', () => { exportMenu.classList.add('hidden'); triggerGdriveRestore(); });
-
   document.getElementById('btn-export-backup').addEventListener('click', () => { exportMenu.classList.add('hidden'); exportBackup(); });
   document.getElementById('btn-restore-file').addEventListener('click',  () => { exportMenu.classList.add('hidden'); importBackup(); });
   document.getElementById('btn-export-combined').addEventListener('click', () => { exportMenu.classList.add('hidden'); gatedExport(exportCombined); });
@@ -1706,7 +1619,6 @@ async function init() {
       consecutiveFailures = 0; firstFailureTime = null;
       cumulativeWritingMs = 0; lastKeystrokeTime = null; deletedCount = 0;
       nextColorIndex = 0;
-      gdriveFileId = null;
       hidePersistentWarning();
 
       noteSpaceState = [
