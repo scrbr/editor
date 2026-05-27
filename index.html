@@ -51,16 +51,40 @@
   <main id="main">
     <div id="writing-area">
       <div id="editor-subheader">
-        <span class="esub-label">Write</span>
         <span class="esub-spacer"></span>
-        <button class="btn" id="btn-fn" title="Insert footnote (Ctrl+Shift+F)">Fn↑</button>
-        <button class="btn" id="btn-progress-snap" title="Save a progress snapshot (max 5)">Snap <span id="progress-snap-count" style="opacity:.7">(0/5)</span></button>
-      </div>
+          <div class="fmt-toolbar">
+            <button class="fmt-btn" id="fmt-h1"      title="Heading 1">H1</button>
+            <button class="fmt-btn" id="fmt-h2"      title="Heading 2">H2</button>
+            <button class="fmt-btn" id="fmt-h3"      title="Heading 3">H3</button>
+            <span class="fmt-sep"></span>
+            <button class="fmt-btn" id="fmt-bold"      title="Bold (Ctrl+B)"><strong>B</strong></button>
+            <button class="fmt-btn" id="fmt-strike"    title="Strikethrough">S̶</button>
+            <button class="fmt-btn" id="fmt-highlight" title="Highlight (Ctrl+Shift+H)">H̲</button>
+            <span class="fmt-sep"></span>
+            <button class="fmt-btn" id="fmt-ul"      title="Bullet list">• List</button>
+            <button class="fmt-btn" id="fmt-ol"      title="Numbered list">1. List</button>
+            <button class="fmt-btn" id="fmt-callout" title="Callout / blockquote">&gt; Note</button>
+            <span class="fmt-sep"></span>
+            <button class="btn" id="btn-md-toggle"   title="Toggle raw markdown view">MD</button>
+          </div>
+          <button class="btn" id="btn-fn" title="Insert footnote (Ctrl+Shift+F)">Fn↑</button>
+          <button class="btn" id="btn-progress-snap" title="Save a progress snapshot (max 5)">Snap <span id="progress-snap-count" style="opacity:.7">(0/5)</span></button>
+        </div>
       <div id="editor-pane">
-        <textarea id="editor" spellcheck="true" placeholder="Begin writing…&#10;&#10;Markdown + footnotes [^1]. Ctrl+S snapshot. Auto-snap every 1.5–3 min."></textarea>
+        <div id="editor"
+             contenteditable="true"
+             spellcheck="true"
+             data-placeholder="Begin writing…&#10;&#10;Markdown + footnotes [^1]. Ctrl+S snapshot. Auto-snap every 1.5–3 min.">
+        </div>
       </div>
       <div id="preview-pane" class="hidden">
-        <div id="preview-content"></div>
+        <div id="preview-toolbar">
+          <span class="preview-title">Document &amp; Writing Report</span>
+          <button class="btn" id="btn-download-report">⬇ Download</button>
+        </div>
+        <div id="preview-content-scroll">
+          <div id="preview-content"></div>
+        </div>
       </div>
     </div>
     <div id="split-handle" class="hidden"></div>
@@ -94,7 +118,18 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/diff_match_patch/20121119/diff_match_patch.js"></script>
 <script src="scrbr.js"></script>
-<script src="report.js"></script>  
+<script>
+</script>
+<script src="render.js"></script>
+<script src="report.js"></script>
+  <script>
+  Object.defineProperty(document.getElementById('editor'), 'value', {
+    get() { return typeof window.editorGetMarkdown === 'function'
+              ? window.editorGetMarkdown()
+              : this.innerText; },
+    set(v) {},
+  });
+</script>
 
 </body>
 </html>
