@@ -219,6 +219,33 @@ html, body {
 .font-size-ctrl { display: flex; gap: 2px; flex-shrink: 0; }
 .toolbar-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 
+.fmt-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+.fmt-sep {
+  width: 1px;
+  height: 14px;
+  background: #D4CEC2;
+  margin: 0 4px;
+  display: inline-block;
+}
+.fmt-btn {
+  font-size: 11px;
+  padding: 3px 7px;
+  border: 1px solid #D4CEC2;
+  border-radius: 3px;
+  background: #F5F1EA;
+  color: #4A4640;
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+.fmt-btn:hover { background: #ECEAE3; }
+.fmt-btn.active { background: #2C4B70; color: #fff; border-color: #2C4B70; }
+
 .dropdown { position: relative; }
 .dropdown-menu {
   position: absolute;
