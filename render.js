@@ -1,3 +1,4 @@
+(function () {
 'use strict';
 
   const editor = document.getElementById('editor');
@@ -707,3 +708,4 @@
     busy = false;
     rerender();
   });
+  })();
