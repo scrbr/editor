@@ -53,6 +53,9 @@ const K = {
   BLOCK_EVENT:    'chr4_block_event',
 };
 
+const _connectivityLog = [];
+window._scrbrConnectivityLog = _connectivityLog; // inspect in console
+
 function noteContentKey(slot) { return K['NOTES_' + slot]; }
 function noteSnapsKey(slot)   { return K['NSNAPS_' + slot]; }
 
@@ -563,18 +566,31 @@ function updateConnectivityIndicator(state) {
 }
 
 async function checkWorkerHealth() {
+  // DEBUG_HEALTHLOG_START
+  const _logEntry = { t: new Date().toISOString(), status: null, reason: null, kv: null };
+  _connectivityLog.push(_logEntry);
+  // DEBUG_HEALTHLOG_END
   try {
-    const res = await fetchWithTimeout(WORKER_URL + '/health', { method: 'GET' });  // Bug 14
+    const res = await fetchWithTimeout(WORKER_URL + '/health', { method: 'GET' });
     if (res.ok) {
       const data = await res.json();
+      // DEBUG_HEALTHLOG_START
+      _logEntry.status = 'ok'; _logEntry.kv = data.keyVersion;
+      // DEBUG_HEALTHLOG_END
       workerKeyVersion = data.keyVersion;
       storageSet(K.KEY_VERSION, workerKeyVersion);
       resetFailureState();
       updateConnectivityIndicator('connected');
     } else {
+      // DEBUG_HEALTHLOG_START
+      _logEntry.status = 'error'; _logEntry.reason = 'http_' + res.status;
+      // DEBUG_HEALTHLOG_END
       handleSigningFailure('health_check_failed');
     }
-  } catch {
+  } catch (err) {
+    // DEBUG_HEALTHLOG_START
+    _logEntry.status = 'error'; _logEntry.reason = String(err);
+    // DEBUG_HEALTHLOG_END
     handleSigningFailure('network_error');
   }
 }
