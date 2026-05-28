@@ -122,18 +122,21 @@
 </script>
 <script src="render.js"></script>
 <script src="report.js"></script>
-  <script>
+<script>
   Object.defineProperty(document.getElementById('editor'), 'value', {
-    get() { return typeof window.editorGetMarkdown === 'function'
-              ? window.editorGetMarkdown()
-              : this.innerText; },
+    get() {
+      return typeof window.editorGetMarkdown === 'function'
+        ? window.editorGetMarkdown()
+        : (this.innerText || '');
+    },
     set(v) {
-  if (typeof window.editorSetContent === 'function') {
-    window.editorSetContent(v);
-  } else {
-    this.innerText = v;
-    this.dispatchEvent(new Event('input', { bubbles: true }));
-  }
+      if (typeof window.editorSetContent === 'function') {
+        window.editorSetContent(v);
+      } else {
+        this.innerText = v || '';
+        this.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    }
   });
 </script>
 
