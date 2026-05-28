@@ -1199,18 +1199,6 @@ async function takeSnapshot(text, silent) {
   }
 }
 
-async function doSaveSnapshot(silent) {
-  const text = document.getElementById('editor').value;
-  lastSaveTime = new Date();
-  if (text.trim() && text !== lastSnapContent) {
-    await takeSnapshot(text, silent);
-    scheduleNextSnapshot();
-  } else {
-    opfsWrite(await serializeToJson()).catch(console.warn);
-  }
-  updateStatusBar();
-}
-
 function insertFootnote() {
   const el = document.getElementById('editor'), text = el.value, pos = el.selectionStart;
   const existing = [...text.matchAll(/\[\^(\d+)\]/g)].map(m => parseInt(m[1]));
@@ -1539,7 +1527,6 @@ async function init() {
   });
 
   document.addEventListener('keydown', e => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 's')               { e.preventDefault(); doSaveSnapshot(false); }
     if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'F') { e.preventDefault(); insertFootnote(); }
     if (e.key === 'Escape') {
       document.getElementById('export-menu').classList.add('hidden');
