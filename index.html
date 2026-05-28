@@ -127,7 +127,13 @@
     get() { return typeof window.editorGetMarkdown === 'function'
               ? window.editorGetMarkdown()
               : this.innerText; },
-    set(v) {},
+    set(v) {
+  if (typeof window.editorSetContent === 'function') {
+    window.editorSetContent(v);
+  } else {
+    this.innerText = v;
+    this.dispatchEvent(new Event('input', { bubbles: true }));
+  }
   });
 </script>
 
