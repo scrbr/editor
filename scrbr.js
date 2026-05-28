@@ -1287,8 +1287,10 @@ async function handleBackupFile(file) {
       else { showToast('Not a valid session file'); return; }
     } catch (_) { showToast('Could not read file — invalid JSON'); return; }
 
-    const vCheck = checkVerifierForLoad(data.vid);
-    if (!vCheck.ok) {
+const vCheck = checkVerifierForLoad(data.vid);
+    const workspaceEmpty = snapshots.length === 0 &&
+      !document.getElementById('editor').value.trim();
+    if (!vCheck.ok && !workspaceEmpty) {
       showVerifierError(
         '<strong>Session mismatch.</strong> This file belongs to a different session than your current cache.<br>' +
         'To load it safely: (1) Save your current session via <em>File → Save Session File</em>, ' +
@@ -1296,7 +1298,7 @@ async function handleBackupFile(file) {
       );
       return;
     }
-    if (vCheck.ok === 'warn') {
+    if (vCheck.ok === 'warn' && !workspaceEmpty) {
       if (!confirm('This file has no session ID (older format). Load it anyway?')) return;
     }
 
@@ -1613,7 +1615,7 @@ async function init() {
        K.UNSIGNED_SNAPS, K.FAIL_COUNT, K.FIRST_FAIL_TIME, K.BLOCK_EVENT,
       ].forEach(k => { try { localStorage.removeItem(k); } catch(_) {} });
 
-      opfsWrite('').catch(console.warn);
+      opfsWrite(JSON.stringify({ v: 4, vid: null, s: [], spaces: [] })).catch(console.warn);
       clearTimeout(snapshotTimerId);
 
       snapshots = []; lastSnapContent = ''; lastSaveTime = null;
