@@ -637,11 +637,10 @@
 
   // ── Keyboard shortcuts ───────────────────────────────────────────
 
-  editor.addEventListener('keydown', e => {
-    const mod = e.ctrlKey || e.metaKey;
-
+editor.addEventListener('keydown', e => {
     if (e.key === 'Tab') {
       e.preventDefault();
+      e.stopImmediatePropagation(); // ← ADD THIS
       busy = true;
       document.execCommand('insertText', false, '    ');
       busy = false;
