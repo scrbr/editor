@@ -1200,7 +1200,9 @@ async function takeSnapshot(text, silent) {
 }
 
 function insertFootnote() {
-  const el = document.getElementById('editor'), text = el.value, pos = el.selectionStart;
+  const el = document.getElementById('editor');
+  if (el.tagName !== 'TEXTAREA') { showToast('Footnote shortcut not yet supported in rich editor'); return; }
+  const text = el.value, pos = el.selectionStart;
   const existing = [...text.matchAll(/\[\^(\d+)\]/g)].map(m => parseInt(m[1]));
   const n = existing.length ? Math.max(...existing) + 1 : 1;
   const withDef = text.slice(0, pos) + `[^${n}]` + text.slice(pos) + `\n\n[^${n}]: `;
@@ -1510,13 +1512,14 @@ async function init() {
   editor.addEventListener('drop', e => { if (!_internalDrag) { e.preventDefault(); showToast('External drop is disabled in Editor'); } });
 
   editor.addEventListener('keydown', e => {
-    if (e.key === 'Tab') {
-      e.preventDefault();
-      const s = editor.selectionStart, en = editor.selectionEnd;
-      editor.value = editor.value.slice(0, s) + '\t' + editor.value.slice(en);
-      editor.selectionStart = editor.selectionEnd = s + 1;
-      onInput();
-    }
+      if (e.key === 'Tab') {
+        if (editor.tagName !== 'TEXTAREA') return; // ← ADD THIS guard
+        e.preventDefault();
+        const s = editor.selectionStart, en = editor.selectionEnd;
+        editor.value = editor.value.slice(0, s) + '\t' + editor.value.slice(en);
+        editor.selectionStart = editor.selectionEnd = s + 1;
+        onInput();
+      }
     if (e.key === 'Backspace' || e.key === 'Delete') {
       const selLen = Math.abs(editor.selectionEnd - editor.selectionStart);
       deletedCount += selLen > 0 ? selLen : 1;
