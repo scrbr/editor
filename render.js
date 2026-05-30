@@ -4,15 +4,12 @@
   const editor = document.getElementById('editor');
   if (!editor) return;
 
-  // ── State ──────────────────────────────────────────────────────
   let busy        = false;
-  let rawMode     = false;   // true = show all raw markdown, no rendering
-  let activeLine  = -1;      // index of the line div the cursor is on
+  let rawMode     = false;  
+  let activeLine  = -1;     
 
-  // ── Init ───────────────────────────────────────────────────────
   editor.innerHTML = '<div><br></div>';
 
-  // ── MD toggle button ───────────────────────────────────────────
   const btnMd = document.getElementById('btn-md-toggle');
   if (btnMd) {
     btnMd.addEventListener('click', () => {
@@ -24,28 +21,21 @@
     });
   }
 
-  // ── Placeholder ────────────────────────────────────────────────
   function syncPlaceholder() {
     const txt = (editor.innerText || '').replace(/\n/g, '').trim();
     editor.classList.toggle('is-empty', txt === '');
   }
   syncPlaceholder();
 
-  // ── DOM → markdown source ──────────────────────────────────────
-
   function lineDivToSource(div) {
     if (div.nodeType === 3) return div.textContent;
     const cl = div.classList;
 
-    // In raw mode, read the full text content (including raw-syntax spans)
-    // so that editing / deleting the prefix chars works correctly
     if (rawMode) {
       return rawTextContent(div);
     }
 
     const inner = nodesToSource(div.childNodes);
-    // Only prepend block prefix if the raw-syntax span is actually present —
-    // prevents inherited classes on Enter-created divs from adding phantom prefixes
     const hasPfxSpan = pfx => {
       for (const n of div.childNodes)
         if (n.classList && n.classList.contains('md-raw-syntax') && n.textContent === pfx) return true;
@@ -63,7 +53,6 @@
     return inner;
   }
 
-  // Read full text of a node including raw-syntax spans (for raw mode)
   function rawTextContent(node) {
     let s = '';
     for (const n of node.childNodes) {
@@ -95,10 +84,6 @@
     return parts.join('\n');
   }
 
-  // ── Source line parsing ─────────────────────────────────────────
-
-  // Returns { type, prefix, content }
-  // type: 'h1'|'h2'|'h3'|'callout'|'ul'|'ol'|'plain'
   function parseLine(src) {
     if (/^### /.test(src))      return { type: 'h3',      prefix: '### ',  content: src.slice(4)  };
     if (/^## /.test(src))       return { type: 'h2',      prefix: '## ',   content: src.slice(3)  };
@@ -108,14 +93,9 @@
     return                             { type: 'plain',   prefix: '',      content: src };
   }
 
-  // ── Inline rendering ────────────────────────────────────────────
-
   const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
-  // Render inline markdown to HTML spans (with raw-syntax nodes embedded)
-  // active=true → wrap syntax chars in .md-raw-syntax spans (visible when active)
   function renderInlineHTML(text, active) {
-    // Tokenise: **bold**, _italic_, ~~strike~~, ==highlight==
     const tokens = tokeniseInline(text);
     let html = '';
     for (const tok of tokens) {
@@ -137,7 +117,6 @@
   }
 
   function tokeniseInline(text) {
-    // Single-pass regex tokeniser for **bold**, _italic_, ~~strike~~, ==highlight==
     const re = /(\*\*)((?:[^*]|\*(?!\*))+?)(\*\*)|(_)((?:[^_])+?)(_)|(~~)((?:[^~]|~(?!~))+?)(~~)|(==)((?:[^=]|=(?!=))+?)(==)/g;
     const tokens = [];
     let last = 0;
@@ -154,16 +133,11 @@
     return tokens;
   }
 
-  // ── Full line rendering ─────────────────────────────────────────
-
-  // Render a source line to a DOM div (does not attach to editor)
-  // isActive: cursor is on this line → show raw syntax, un-style block prefix
   function renderLineDiv(src, isActive) {
     const { type, prefix, content, num } = parseLine(src);
     const innerHTML = renderInlineHTML(content, isActive);
     const div = document.createElement('div');
 
-    // Set type class first, then optionally active-line
     if (type === 'h1')      div.classList.add('md-h1');
     else if (type === 'h2') div.classList.add('md-h2');
     else if (type === 'h3') div.classList.add('md-h3');
@@ -172,7 +146,6 @@
 
     if (isActive) div.classList.add('md-active-line');
 
-    // Prefix raw syntax span (for block markers)
     const prefixSpan = prefix
       ? `<span class="md-raw-syntax">${esc(prefix)}</span>`
       : '';
@@ -183,8 +156,6 @@
       div.innerHTML = innerHTML;
     }
 
-    // For block-type lines, ensure there's always a text node after the prefix span
-    // so the cursor has a valid non-raw-syntax target
     if (type !== 'plain') {
       const childNodes = Array.from(div.childNodes);
       const lastChild = childNodes[childNodes.length - 1];
@@ -204,8 +175,6 @@
     });
     return frag;
   }
-
-  // ── Cursor save / restore ───────────────────────────────────────
 
   function nodeToLinePos(container, containerOff) {
     let lineDiv = container.nodeType === 1 ? container : container.parentNode;
@@ -305,13 +274,11 @@
 
     walk(lineDiv);
     if (!done) {
-      // Cursor offset is beyond content length — place at end of last visible text node
       const endNode = lastVisibleTextNode(lineDiv);
       if (endNode) {
         range.setStart(endNode, endNode.textContent.length);
         range.collapse(true);
       } else {
-        // No text node at all — place after the last child of lineDiv
         range.setStart(lineDiv, lineDiv.childNodes.length);
         range.collapse(true);
       }
@@ -326,13 +293,11 @@
     const r = sel.getRangeAt(0);
     if (!r.collapsed) return;
     if (isInsideRawSyntax(r.startContainer)) {
-      // Move cursor to after the raw-syntax ancestor
       let rawNode = r.startContainer;
       while (rawNode.parentNode && !rawNode.parentNode.classList?.contains('md-raw-syntax')) {
         if (rawNode.classList?.contains('md-raw-syntax')) break;
         rawNode = rawNode.parentNode;
       }
-      // rawNode is the md-raw-syntax span; move after it
       const parent = rawNode.parentNode;
       if (parent) {
         const newRange = document.createRange();
@@ -356,8 +321,6 @@
     return last;
   }
 
-  // ── Core re-render ──────────────────────────────────────────────
-
   function rerender() {
     if (busy) return;
     busy = true;
@@ -374,9 +337,6 @@
     const src  = domToMarkdown();
     const srcLines = src ? src.split('\n') : [''];
     const domLines = Array.from(editor.children);
-
-    // Smart rerender: only replace lines whose source or type changed.
-    // This avoids destroying the cursor's text node on every keystroke.
     const maxLen = Math.max(srcLines.length, domLines.length);
     for (let i = 0; i < maxLen; i++) {
       const lineSrc = srcLines[i] !== undefined ? srcLines[i] : null;
@@ -384,18 +344,15 @@
       const isActive = !rawMode && i === activeLine;
 
       if (lineSrc === null) {
-        // Extra DOM line — remove
         if (oldDiv) editor.removeChild(oldDiv);
         continue;
       }
 
       if (!oldDiv) {
-        // New line — append
         editor.appendChild(renderLineDiv(lineSrc, isActive));
         continue;
       }
 
-      // Check if the rendered source of this div already matches
       const oldSrc = lineDivToSource(oldDiv);
       const oldActive = oldDiv.classList.contains('md-active-line');
       if (oldSrc === lineSrc && oldActive === isActive) continue; // no change
@@ -409,7 +366,6 @@
     busy = false;
   }
 
-  // Update active-line highlighting without full rerender (used on cursor moves)
   function rerenderActiveLine() {
     if (busy) return;
     const newActive = getActiveLine();
@@ -418,7 +374,6 @@
     busy = true;
     const pos = getCursorPos();
 
-    // Re-render old active line (remove active class)
     if (activeLine >= 0) {
       const lines = Array.from(editor.children);
       const oldDiv = lines[activeLine];
@@ -431,7 +386,6 @@
 
     activeLine = newActive;
 
-    // Re-render new active line (add active class)
     if (activeLine >= 0) {
       const lines = Array.from(editor.children);
       const curDiv = lines[activeLine];
@@ -446,17 +400,12 @@
     busy = false;
   }
 
-  // ── Track which inline span the cursor is inside ─────────────────
-  // Adds .md-cursor-inside to the innermost inline format span containing
-  // the cursor, so only its md-raw-syntax chars are shown.
-
   let lastCursorSpan = null;
 
   function updateCursorInside() {
     const sel = window.getSelection();
     const node = sel && sel.rangeCount ? sel.getRangeAt(0).startContainer : null;
 
-    // Walk up from cursor node to find an inline format span
     let target = null;
     let n = node;
     while (n && n !== editor) {
@@ -478,11 +427,8 @@
     if (lastCursorSpan) lastCursorSpan.classList.add('md-cursor-inside');
   }
 
-  // ── Event listeners ─────────────────────────────────────────────
-
   editor.addEventListener('input', () => { rerender(); updateCursorInside(); });
 
-  // Cursor movement: update active line without rerendering content
   editor.addEventListener('keyup', e => {
     const nav = ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Home','End','PageUp','PageDown'];
     if (nav.includes(e.key)) { rerenderActiveLine(); updateCursorInside(); }
@@ -498,7 +444,6 @@
 
   editor.addEventListener('blur', () => {
     if (lastCursorSpan) { lastCursorSpan.classList.remove('md-cursor-inside'); lastCursorSpan = null; }
-    // When focus leaves, remove active-line treatment
     if (activeLine >= 0 && !rawMode) {
       busy = true;
       const pos = getCursorPos();
@@ -514,13 +459,10 @@
     }
   });
 
-  // Click pane padding → focus
   const pane = document.getElementById('editor-pane');
   if (pane) pane.addEventListener('click', e => {
     if (e.target === pane) editor.focus();
   });
-
-  // ── renderedOff → source offset (for inline format insertion) ───
 
   function renderedOffToSrc(contentSrc, rendOff) {
     const re = /(\*\*[^*]+?\*\*|_[^_]+?_|~~[^~]+?~~|==[^=]+?==)/g;
@@ -530,7 +472,6 @@
       if (rndI + gapLen > rendOff) return srcI + (rendOff - rndI);
       rndI += gapLen;
       const raw  = m[0];
-      // detect markers length: **, _, ~~, ==
       const mlen = raw.startsWith('**') || raw.startsWith('~~') || raw.startsWith('==') ? 2 : 1;
       const innerLen = raw.length - mlen * 2;
       if (rndI + innerLen > rendOff) return m.index + mlen + (rendOff - rndI);
@@ -539,8 +480,6 @@
     }
     return srcI + (rendOff - rndI);
   }
-
-  // ── Toolbar format actions ───────────────────────────────────────
 
   function applyInlineFormat(before, after, placeholder) {
     const sel = window.getSelection();
@@ -566,7 +505,6 @@
 
     const fullSrc  = lineDivToSource(lineDiv);
     const parsed   = parseLine(fullSrc);
-    // Use parsed.prefix for ALL block types (headings, lists, callout, etc.)
     const blockPfx = parsed.prefix;
     const contentSrc = fullSrc.slice(blockPfx.length);
 
@@ -604,8 +542,6 @@
     const newDiv = renderLineDiv(newSrc, !rawMode);
     editor.replaceChild(newDiv, lineDiv);
 
-    // Find the trailing content text node (after the prefix raw-syntax span)
-    // and place cursor there directly, bypassing setCursorPos offset logic.
     const sel = window.getSelection();
     const range = document.createRange();
     const contentNode = lastVisibleTextNode(newDiv);
@@ -613,7 +549,6 @@
       range.setStart(contentNode, contentNode.textContent.length);
       range.collapse(true);
     } else {
-      // Fallback: place after all children of newDiv
       range.setStart(newDiv, newDiv.childNodes.length);
       range.collapse(true);
     }
@@ -623,10 +558,8 @@
     syncPlaceholder();
   }
 
-  // ── Toolbar wiring ───────────────────────────────────────────────
   const $ = id => document.getElementById(id);
 
-  // Prevent toolbar buttons from stealing focus (which loses the selection)
   document.querySelector('.fmt-toolbar').addEventListener('mousedown', e => {
     if (e.target.closest('.fmt-btn')) e.preventDefault();
   });
@@ -640,8 +573,6 @@
   $('fmt-ul')       .addEventListener('click', () => applyLinePrefix('- '));
   $('fmt-ol')       .addEventListener('click', () => applyLinePrefix('1. '));
   $('fmt-callout')  .addEventListener('click', () => applyLinePrefix('> '));
-
-  // ── Keyboard shortcuts ───────────────────────────────────────────
 
 editor.addEventListener('keydown', e => {
     if (e.key === 'Tab') {
@@ -666,15 +597,10 @@ editor.addEventListener('keydown', e => {
       return;
     }
 
-    // For printable characters on block-type lines: ensure the character
-    // is inserted into the content area (after the prefix span), not before it.
-    // This fixes the case where rerender placed the cursor at element-level offset.
     if (!mod && e.key.length === 1) {
       const sel = window.getSelection();
       if (!sel || !sel.rangeCount) return;
       const r = sel.getRangeAt(0);
-      // If cursor is at the element level inside a block-type line div
-      // (container is the div itself, not a text node inside it), fix it first.
       if (r.startContainer.nodeType === 1) {
         const div = r.startContainer;
         const cl = div.classList;
@@ -683,7 +609,6 @@ editor.addEventListener('keydown', e => {
                                cl.contains('md-callout'));
         if (isBlock) {
           e.preventDefault();
-          // Place cursor at end of visible content then insert
           const textNode = lastVisibleTextNode(div);
           const range = document.createRange();
           if (textNode) {
@@ -703,7 +628,6 @@ editor.addEventListener('keydown', e => {
     }
   });
 
-  // ── Paste: plain text only ───────────────────────────────────────
   editor.addEventListener('paste', e => {
     e.preventDefault();
     const text = e.clipboardData.getData('text/plain');
