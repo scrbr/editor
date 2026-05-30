@@ -362,6 +362,12 @@
     if (busy) return;
     busy = true;
 
+    if (editor.children.length > 0) {
+      for (const node of [...editor.childNodes]) {
+        if (node.nodeType !== 1) editor.removeChild(node);
+      }
+    }
+
     const pos  = getCursorPos();
     activeLine = getActiveLine();
 
