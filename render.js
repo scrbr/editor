@@ -6,7 +6,7 @@
 
   let busy        = false;
   let rawMode     = false;  
-  let activeLine  = -1;     
+  let activeLine  = -1;   
 
   editor.innerHTML = '<div><br></div>';
 
@@ -16,7 +16,6 @@
       rawMode = !rawMode;
       editor.classList.toggle('md-raw-mode', rawMode);
       btnMd.classList.toggle('active', rawMode);
-      // Re-render to apply/remove active-line treatment
       rerender();
     });
   }
@@ -45,7 +44,15 @@
     if (cl && cl.contains('md-h1')       && hasPfxSpan('# '))   return '# ' + inner;
     if (cl && cl.contains('md-h2')       && hasPfxSpan('## '))  return '## ' + inner;
     if (cl && cl.contains('md-h3')       && hasPfxSpan('### ')) return '### ' + inner;
-    if (cl && cl.contains('md-ul-item')  && hasPfxSpan('- '))   return '- ' + inner;
+    if (cl && cl.contains('md-ul-item')) {
+      for (const n of div.childNodes) {
+        if (n.classList && n.classList.contains('md-raw-syntax') && n.textContent.endsWith('- ')) {
+          return n.textContent + inner;
+        }
+      }
+      if (hasPfxSpan('- ')) return '- ' + inner;
+      return inner;
+    }
     if (cl && cl.contains('md-ol-item')) {
       const numSpan = div.querySelector('.md-ol-num');
       if (numSpan) return numSpan.textContent + inner;
@@ -68,7 +75,7 @@
     for (const n of nodes) {
       if      (n.nodeType === 3)                    s += n.textContent;
       else if (n.nodeName === 'BR')                 { /* skip */ }
-      else if (n.classList && n.classList.contains('md-raw-syntax')) { /* skip — syntax chars stored here */ }
+      else if (n.classList && n.classList.contains('md-raw-syntax')) { /* skip */ }
       else if (n.nodeName === 'MARK')               s += '==' + nodesToSource(n.childNodes) + '==';
       else if (n.classList && n.classList.contains('md-bold'))   s += '**' + nodesToSource(n.childNodes) + '**';
       else if (n.classList && n.classList.contains('md-italic')) s += '_' + nodesToSource(n.childNodes) + '_';
@@ -85,12 +92,19 @@
   }
 
   function parseLine(src) {
-    if (/^### /.test(src))      return { type: 'h3',      prefix: '### ',  content: src.slice(4)  };
-    if (/^## /.test(src))       return { type: 'h2',      prefix: '## ',   content: src.slice(3)  };
-    if (/^# /.test(src))        return { type: 'h1',      prefix: '# ',    content: src.slice(2)  };
-    if (/^> /.test(src))        return { type: 'callout', prefix: '> ',    content: src.slice(2)  };
-    if (/^- /.test(src))        return { type: 'ul',      prefix: '- ',    content: src.slice(2)  };
-    return                             { type: 'plain',   prefix: '',      content: src };
+    if (/^### /.test(src))      return { type: 'h3',      prefix: '### ',  indent: 0, content: src.slice(4)  };
+    if (/^## /.test(src))       return { type: 'h2',      prefix: '## ',   indent: 0, content: src.slice(3)  };
+    if (/^# /.test(src))        return { type: 'h1',      prefix: '# ',    indent: 0, content: src.slice(2)  };
+    if (/^> /.test(src))        return { type: 'callout', prefix: '> ',    indent: 0, content: src.slice(2)  };
+    const olM = src.match(/^(\d+\. )(.*)/);
+    if (olM)                    return { type: 'ol',      prefix: olM[1],  indent: 0, content: olM[2]        };
+    const ulM = src.match(/^( *- )(.*)/);
+    if (ulM) {
+      const pfx    = ulM[1];                               // e.g. "  - "
+      const level  = Math.floor((pfx.length - 2) / 2);    // indent level (0 = top)
+      return { type: 'ul', prefix: pfx, indent: level, content: ulM[2] };
+    }
+    return                             { type: 'plain',   prefix: '',      indent: 0, content: src };
   }
 
   const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -134,21 +148,28 @@
   }
 
   function renderLineDiv(src, isActive) {
-    const { type, prefix, content, num } = parseLine(src);
+    const { type, prefix, indent, content } = parseLine(src);
     const innerHTML = renderInlineHTML(content, isActive);
     const div = document.createElement('div');
 
-    if (type === 'h1')      div.classList.add('md-h1');
-    else if (type === 'h2') div.classList.add('md-h2');
-    else if (type === 'h3') div.classList.add('md-h3');
+    if      (type === 'h1')      div.classList.add('md-h1');
+    else if (type === 'h2')      div.classList.add('md-h2');
+    else if (type === 'h3')      div.classList.add('md-h3');
     else if (type === 'callout') div.classList.add('md-callout');
-    else if (type === 'ul') div.classList.add('md-ul-item');
+    else if (type === 'ul') {
+      div.classList.add('md-ul-item');
+      if (indent > 0) div.dataset.indent = String(indent);
+    }
+    else if (type === 'ol')      div.classList.add('md-ol-item');
 
     if (isActive) div.classList.add('md-active-line');
 
-    const prefixSpan = prefix
-      ? `<span class="md-raw-syntax">${esc(prefix)}</span>`
-      : '';
+    let prefixSpan = '';
+    if (type === 'ol') {
+      prefixSpan = `<span class="md-ol-num md-raw-syntax">${esc(prefix)}</span>`;
+    } else if (prefix) {
+      prefixSpan = `<span class="md-raw-syntax">${esc(prefix)}</span>`;
+    }
 
     if (type !== 'plain') {
       div.innerHTML = prefixSpan + (innerHTML === '<br>' ? '' : innerHTML);
@@ -176,6 +197,7 @@
     return frag;
   }
 
+
   function nodeToLinePos(container, containerOff) {
     let lineDiv = container.nodeType === 1 ? container : container.parentNode;
     while (lineDiv && lineDiv.parentNode !== editor) lineDiv = lineDiv.parentNode;
@@ -187,7 +209,6 @@
     function countFull(n) {
       if (n.nodeType === 3) { off += n.textContent.length; return; }
       if (n.nodeName === 'BR') return;
-      // skip .md-raw-syntax nodes — they don't contribute to visible offset
       if (n.classList && n.classList.contains('md-raw-syntax')) return;
       for (const c of n.childNodes) countFull(c);
     }
@@ -196,7 +217,6 @@
       if (done) return;
       if (n === container) {
         if (n.nodeType === 3) {
-          // if inside a raw-syntax node, don't count
           if (isInsideRawSyntax(n)) { done = true; return; }
           off += containerOff;
         } else {
@@ -255,7 +275,6 @@
 
     function walk(n) {
       if (done) return;
-      // skip raw-syntax spans
       if (n.classList && n.classList.contains('md-raw-syntax')) return;
       if (n.nodeType === 3) {
         const len = n.textContent.length;
@@ -325,18 +344,13 @@
     if (busy) return;
     busy = true;
 
-    if (editor.children.length > 0) {
-      for (const node of [...editor.childNodes]) {
-        if (node.nodeType !== 1) editor.removeChild(node);
-      }
-    }
-
     const pos  = getCursorPos();
     activeLine = getActiveLine();
 
     const src  = domToMarkdown();
     const srcLines = src ? src.split('\n') : [''];
     const domLines = Array.from(editor.children);
+
     const maxLen = Math.max(srcLines.length, domLines.length);
     for (let i = 0; i < maxLen; i++) {
       const lineSrc = srcLines[i] !== undefined ? srcLines[i] : null;
@@ -355,7 +369,7 @@
 
       const oldSrc = lineDivToSource(oldDiv);
       const oldActive = oldDiv.classList.contains('md-active-line');
-      if (oldSrc === lineSrc && oldActive === isActive) continue; // no change
+      if (oldSrc === lineSrc && oldActive === isActive) continue;
 
       const newDiv = renderLineDiv(lineSrc, isActive);
       editor.replaceChild(newDiv, oldDiv);
@@ -421,7 +435,6 @@
     }
 
     if (target === lastCursorSpan) return;
-
     if (lastCursorSpan) lastCursorSpan.classList.remove('md-cursor-inside');
     lastCursorSpan = target;
     if (lastCursorSpan) lastCursorSpan.classList.add('md-cursor-inside');
@@ -524,25 +537,24 @@
   }
 
   function applyLinePrefix(prefix) {
+    editor.focus();
     const pos = getCursorPos();
     if (!pos) return;
     const { li } = pos;
-  
+
     const lines   = Array.from(editor.children);
     const lineDiv = lines[li];
     if (!lineDiv) return;
-  
+
     const src = lineDivToSource(lineDiv);
-    const blockRe     = /^(#{1,3} |> |- |\d+\. )/;
+    const blockRe     = /^(#{1,3} |> |- |\d+\. | +- )/;
     const existingPfx = (src.match(blockRe) || [''])[0];
     const bare        = src.slice(existingPfx.length);
     const newSrc      = existingPfx === prefix ? bare : prefix + bare;
-  
+
     const newDiv = renderLineDiv(newSrc, !rawMode);
     editor.replaceChild(newDiv, lineDiv);
-  
-    editor.focus();
-  
+
     const sel = window.getSelection();
     const range = document.createRange();
     const contentNode = lastVisibleTextNode(newDiv);
@@ -555,7 +567,40 @@
     }
     sel.removeAllRanges();
     sel.addRange(range);
-  
+
+    syncPlaceholder();
+  }
+
+
+  function applyListIndent(dir) {
+    editor.focus();
+    const pos = getCursorPos();
+    if (!pos) return;
+    const { li, off } = pos;
+
+    const lines   = Array.from(editor.children);
+    const lineDiv = lines[li];
+    if (!lineDiv) return;
+
+    const src = lineDivToSource(lineDiv);
+    const ulM = src.match(/^( *- )(.*)/);
+    if (!ulM) return;
+
+    const spaces  = ulM[1].slice(0, ulM[1].length - 2);  
+    const content = ulM[2];
+
+    let newSrc;
+    if (dir === 'in') {
+      newSrc = spaces + '  - ' + content;
+    } else {
+      if (spaces.length < 2) return;                      
+      newSrc = spaces.slice(2) + '- ' + content;
+    }
+
+    const newDiv = renderLineDiv(newSrc, !rawMode);
+    editor.replaceChild(newDiv, lineDiv);
+
+    setCursorPos({ li, off });
     syncPlaceholder();
   }
 
@@ -572,13 +617,29 @@
   $('fmt-strike')   .addEventListener('click', () => applyInlineFormat('~~', '~~', 'strikethrough'));
   $('fmt-highlight').addEventListener('click', () => applyInlineFormat('==', '==', 'highlighted'));
   $('fmt-ul')       .addEventListener('click', () => applyLinePrefix('- '));
-  $('fmt-ol')       .addEventListener('click', () => applyLinePrefix('1. '));
+  $('fmt-ol')      ?.addEventListener('click', () => applyLinePrefix('1. '));
   $('fmt-callout')  .addEventListener('click', () => applyLinePrefix('> '));
+  $('fmt-indent')  ?.addEventListener('click', () => applyListIndent('in'));
+  $('fmt-outdent') ?.addEventListener('click', () => applyListIndent('out'));
 
-editor.addEventListener('keydown', e => {
+
+  editor.addEventListener('keydown', e => {
+    const mod = e.ctrlKey || e.metaKey;
+
     if (e.key === 'Tab') {
       e.preventDefault();
-      e.stopImmediatePropagation(); // ← ADD THIS
+      const curLi = getActiveLine();
+      if (curLi >= 0) {
+        const lineDiv = Array.from(editor.children)[curLi];
+        if (lineDiv && lineDiv.classList.contains('md-ul-item')) {
+          if (e.shiftKey) {
+            applyListIndent('out');
+          } else {
+            applyListIndent('in');
+          }
+          return;
+        }
+      }
       busy = true;
       document.execCommand('insertText', false, '    ');
       busy = false;
@@ -610,16 +671,18 @@ editor.addEventListener('keydown', e => {
                                cl.contains('md-callout'));
         if (isBlock) {
           e.preventDefault();
-          const textNode = lastVisibleTextNode(div);
-          const range = document.createRange();
-          if (textNode) {
-            range.setStart(textNode, textNode.textContent.length);
+          const logPos = getCursorPos();
+          if (logPos) {
+            setCursorPos(logPos);
           } else {
-            range.setStart(div, div.childNodes.length);
+            const textNode = lastVisibleTextNode(div);
+            const range2 = document.createRange();
+            if (textNode) range2.setStart(textNode, textNode.textContent.length);
+            else range2.setStart(div, div.childNodes.length);
+            range2.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(range2);
           }
-          range.collapse(true);
-          sel.removeAllRanges();
-          sel.addRange(range);
           busy = true;
           document.execCommand('insertText', false, e.key);
           busy = false;
@@ -638,4 +701,22 @@ editor.addEventListener('keydown', e => {
     busy = false;
     rerender();
   });
-  })();
+
+  window.editorGetMarkdown = function () {
+    return domToMarkdown();
+  };
+
+  window.editorSetContent = function (markdown) {
+    busy = true;
+    const lines = (markdown || '').split('\n');
+    while (editor.firstChild) editor.removeChild(editor.firstChild);
+    for (const line of lines) {
+      editor.appendChild(renderLineDiv(line, false));
+    }
+    if (!editor.children.length) editor.appendChild(renderLineDiv('', false));
+    activeLine = -1;
+    syncPlaceholder();
+    busy = false;
+  };
+
+})();
