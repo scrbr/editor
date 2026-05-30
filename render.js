@@ -524,24 +524,25 @@
   }
 
   function applyLinePrefix(prefix) {
-    editor.focus();
     const pos = getCursorPos();
     if (!pos) return;
     const { li } = pos;
-
+  
     const lines   = Array.from(editor.children);
     const lineDiv = lines[li];
     if (!lineDiv) return;
-
+  
     const src = lineDivToSource(lineDiv);
     const blockRe     = /^(#{1,3} |> |- |\d+\. )/;
     const existingPfx = (src.match(blockRe) || [''])[0];
     const bare        = src.slice(existingPfx.length);
     const newSrc      = existingPfx === prefix ? bare : prefix + bare;
-
+  
     const newDiv = renderLineDiv(newSrc, !rawMode);
     editor.replaceChild(newDiv, lineDiv);
-
+  
+    editor.focus();
+  
     const sel = window.getSelection();
     const range = document.createRange();
     const contentNode = lastVisibleTextNode(newDiv);
@@ -554,7 +555,7 @@
     }
     sel.removeAllRanges();
     sel.addRange(range);
-
+  
     syncPlaceholder();
   }
 
