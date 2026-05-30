@@ -282,6 +282,8 @@ html, body {
   display: flex;
   justify-content: center;
   background: var(--bg);
+  /* BUG 3 FIX: ensure caret always has breathing room at the bottom */
+  scroll-padding-bottom: 80px;
 }
 .hidden { display: none !important; }
 
@@ -297,7 +299,10 @@ html, body {
   color: var(--text);
   tab-size: 4;
   padding-top: 1%;
-  padding-bottom: 1%;
+  /* BUG 3 FIX: generous bottom padding so the last line of text always has
+     visible space below it when the cursor is on it.  Was "1%" which collapsed
+     to near-zero on short viewports. */
+  padding-bottom: 120px;
   margin-left: 10%;
   margin-right: 10%;
   caret-color: var(--accent);
@@ -345,8 +350,22 @@ mark {
 #editor .md-bold { font-weight: 700; }
 #editor .md-italic { font-style: italic; }
 #editor .md-strike { text-decoration: line-through; }
+
+/* ── Unordered list items — level 0 ── */
 #editor .md-ul-item { padding-left: 1.4em; position: relative; }
 #editor .md-ul-item::before { content: '•'; position: absolute; left: 0.3em; color: var(--muted-text); }
+
+/* BUG 2 FIX: indented list levels — each data-indent adds one level of nesting */
+#editor .md-ul-item[data-indent="1"] { padding-left: 2.8em; }
+#editor .md-ul-item[data-indent="1"]::before { left: 1.7em; content: '◦'; }
+#editor .md-ul-item[data-indent="2"] { padding-left: 4.2em; }
+#editor .md-ul-item[data-indent="2"]::before { left: 3.1em; content: '▸'; }
+#editor .md-ul-item[data-indent="3"] { padding-left: 5.6em; }
+#editor .md-ul-item[data-indent="3"]::before { left: 4.5em; content: '◦'; }
+#editor .md-ul-item[data-indent="4"] { padding-left: 7.0em; }
+#editor .md-ul-item[data-indent="4"]::before { left: 5.9em; content: '▸'; }
+
+/* ── Ordered list items ── */
 #editor .md-ol-item { padding-left: 1.8em; position: relative; }
 #editor .md-ol-item .md-ol-num { position: absolute; left: 0; color: var(--muted-text); }
 
@@ -390,7 +409,10 @@ mark {
   padding-left: 0;
 }
 #editor .md-active-line.md-ul-item::before { display: none; }
-#editor .md-active-line .md-ol-num { display: none; }
+/* BUG 5 / ol FIX: the md-ol-num span now uses md-raw-syntax for visibility, so
+   the display:none rule here is replaced — the general md-raw-syntax rules
+   (hidden normally, inline on active line) do the right thing automatically. */
+/* REMOVED: #editor .md-active-line .md-ol-num { display: none; } */
 
 /* Raw mode: editor shows plain text, no rendered elements */
 #editor.md-raw-mode .md-h1,
@@ -502,9 +524,15 @@ mark {
   font-weight: 600;
 }
 
-.fmt-btn-ul,
-.fmt-btn-ol,
-.fmt-btn-callout {
+/* BUG 2 FIX: visual style for indent/outdent buttons */
+.fmt-btn-indent,
+.fmt-btn-outdent {
+  font-size: 14px;
+  opacity: 0.7;
+}
+.fmt-btn-indent:hover,
+.fmt-btn-outdent:hover {
+  opacity: 1;
 }
 
 #preview-content {
